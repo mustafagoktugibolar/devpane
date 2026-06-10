@@ -5,7 +5,11 @@ use super::{DevPaneConfig, PaneConfig};
 pub const DEFAULT_SHELL: &str = "pwsh";
 
 /// Default shell used when neither the pane nor global settings define one.
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+pub const DEFAULT_SHELL: &str = "zsh";
+
+/// Default shell used when neither the pane nor global settings define one.
+#[cfg(all(unix, not(target_os = "macos")))]
 pub const DEFAULT_SHELL: &str = "sh";
 
 /// Default pane auto-start behavior.
@@ -146,5 +150,12 @@ mod tests {
         let config = config(None);
 
         assert_eq!(config.scrollback(), DEFAULT_SCROLLBACK);
+    }
+
+    #[test]
+    fn pane_shell_uses_platform_default_when_no_shell_is_configured() {
+        let config = config(None);
+
+        assert_eq!(config.pane_shell(&pane()), DEFAULT_SHELL);
     }
 }

@@ -1,8 +1,10 @@
 mod cli;
 mod config;
+mod output;
 
 use crate::cli::{Cli, Command};
 use crate::config::{DevPaneConfig, validate_config};
+use crate::output::{format_inspection, format_validation_success};
 use clap::Parser;
 use std::path::Path;
 
@@ -27,38 +29,14 @@ fn load_validated_config(config_path: &Path) -> anyhow::Result<DevPaneConfig> {
 fn validate_workspace(config_path: &Path) -> anyhow::Result<()> {
     let config = load_validated_config(config_path)?;
 
-    println!("Valid .dpane file: {}", config_path.display());
-    println!("Workspace: {}", config.name);
-    println!("Panes: {}", config.panes.len());
+    print!("{}", format_validation_success(config_path, &config));
 
     Ok(())
 }
 
 fn inspect_workspace(config_path: &Path) -> anyhow::Result<()> {
     let config = load_validated_config(config_path)?;
-    let workspace_root = config.workspace_root(config_path)?;
-
-    println!("Workspace: {}", config.name);
-    println!("Version: {}", config.version);
-    println!("Workspace root: {}", workspace_root.display());
-    println!("Scrollback: {}", config.scrollback());
-
-    println!("Panes:");
-
-    for (pane_id, pane) in &config.panes {
-        let pane_name = pane.name.as_deref().unwrap_or(pane_id);
-        let pane_cwd = config.pane_cwd(config_path, pane)?;
-        let pane_shell = config.pane_shell(pane);
-        let pane_auto_start = config.pane_auto_start(pane);
-        let command = pane.command.as_deref().unwrap_or("<no command>");
-
-        println!("- {}", pane_id);
-        println!("  name: {}", pane_name);
-        println!("  cwd: {}", pane_cwd.display());
-        println!("  shell: {}", pane_shell);
-        println!("  auto_start: {}", pane_auto_start);
-        println!("  command: {}", command);
-    }
+    print!("{}", format_inspection(config_path, &config)?);
 
     Ok(())
 }
