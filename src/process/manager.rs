@@ -1,3 +1,4 @@
+use crate::process::launch::{ProcessLaunch, build_launch};
 use crate::workspace::{PaneStatus, WorkspaceRuntime};
 use anyhow::{Result, bail};
 
@@ -24,15 +25,20 @@ impl ProcessManager {
     ///
     /// Returns an error if the pane id is unknown or if the pane is already
     /// starting or running.
-    pub fn start_pane(&self, runtime: &mut WorkspaceRuntime, pane_id: &str) -> Result<()> {
+    pub fn start_pane(
+        &self,
+        runtime: &mut WorkspaceRuntime,
+        pane_id: &str,
+    ) -> Result<ProcessLaunch> {
         let pane = runtime
             .pane_mut(pane_id)
             .ok_or_else(|| anyhow::anyhow!("unknown pane: {}", pane_id))?;
 
         match pane.status {
             PaneStatus::Idle | PaneStatus::Exited { .. } | PaneStatus::Failed { .. } => {
+                let launch = build_launch(&pane.pane);
                 pane.status = PaneStatus::Starting;
-                Ok(())
+                Ok(launch)
             }
             PaneStatus::Starting => bail!("pane '{}' is already starting", pane_id),
             PaneStatus::Running => bail!("pane '{}' is already running", pane_id),
@@ -226,5 +232,19 @@ mod tests {
             runtime.pane("app").expect("pane should exist").status,
             PaneStatus::Starting
         );
+    }
+
+    #[test]
+    fn start_pane_returns_launch_plan() {
+        let manager = ProcessManager::new();
+        let mut runtime = runtime();
+
+        let launch = manager
+            .start_pane(&mut runtime, "app")
+            .expect("pane should start");
+
+        assert_eq!(launch.pane_id, "app");
+        assert_eq!(launch.program, "pwsh");
+        assert_eq!(launch.cwd, PathBuf::from("C:/workspace/app"));
     }
 }

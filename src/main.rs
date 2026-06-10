@@ -1,12 +1,14 @@
 mod cli;
 mod config;
 mod output;
+#[cfg(test)]
 mod process;
 mod workspace;
 
 use crate::cli::{Cli, Command};
 use crate::config::{DevPaneConfig, validate_config};
-use crate::output::{format_inspection, format_validation_success};
+use crate::output::{format_validation_success, format_workspace_inspection};
+use crate::workspace::build_workspace;
 use clap::Parser;
 use std::path::Path;
 
@@ -38,7 +40,9 @@ fn validate_workspace(config_path: &Path) -> anyhow::Result<()> {
 
 fn inspect_workspace(config_path: &Path) -> anyhow::Result<()> {
     let config = load_validated_config(config_path)?;
-    print!("{}", format_inspection(config_path, &config)?);
+    let workspace = build_workspace(config_path, &config)?;
+
+    print!("{}", format_workspace_inspection(&workspace));
 
     Ok(())
 }

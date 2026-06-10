@@ -1,6 +1,5 @@
 use crate::config::{DevPaneConfig, LayoutNode, SplitDirection};
-use crate::workspace::{Workspace, build_workspace};
-use anyhow::Result;
+use crate::workspace::Workspace;
 use std::fmt::Write;
 use std::path::Path;
 
@@ -12,16 +11,6 @@ pub fn format_validation_success(config_path: &Path, config: &DevPaneConfig) -> 
         config.name,
         config.panes.len()
     )
-}
-
-/// Formats a resolved inspection summary for a `.dpane` file.
-///
-/// # Errors
-///
-/// Returns an error if workspace or pane paths cannot be resolved.
-pub fn format_inspection(config_path: &Path, config: &DevPaneConfig) -> Result<String> {
-    let workspace = build_workspace(config_path, config)?;
-    Ok(format_workspace_inspection(&workspace))
 }
 
 /// Formats a resolved runtime workspace summary.
@@ -105,47 +94,15 @@ fn format_size(size: Option<u16>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{PaneConfig, Settings};
-    use std::collections::HashMap;
-    use std::fs;
+    use crate::workspace::WorkspacePane;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn test_dir(name: &str) -> PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after UNIX epoch")
-            .as_nanos();
-        std::env::temp_dir().join(format!("devpane-{name}-{unique}"))
-    }
 
     #[test]
-    fn format_inspection_includes_layout_and_resolved_pane_settings() {
-        let root = test_dir("inspection");
-        let pane_dir = root.join("src");
-        fs::create_dir_all(&pane_dir).expect("pane directory should be created");
-
-        let mut panes = HashMap::new();
-        panes.insert(
-            "app".to_string(),
-            PaneConfig {
-                name: Some("App".to_string()),
-                cwd: Some(PathBuf::from("src")),
-                shell: None,
-                command: Some("cargo run".to_string()),
-                auto_start: Some(false),
-            },
-        );
-
-        let config = DevPaneConfig {
-            version: 1,
+    fn format_workspace_inspection_includes_layout_and_resolved_pane_settings() {
+        let workspace = Workspace {
             name: "Test Workspace".to_string(),
-            root: Some(root.clone()),
-            settings: Some(Settings {
-                shell: Some("pwsh".to_string()),
-                auto_start: Some(true),
-                scrollback: Some(2000),
-            }),
+            root: PathBuf::from("C:/workspace"),
+            scrollback: 2000,
             layout: LayoutNode::Split {
                 direction: SplitDirection::Horizontal,
                 size: Some(100),
@@ -154,11 +111,17 @@ mod tests {
                     size: Some(50),
                 }],
             },
-            panes,
+            panes: vec![WorkspacePane {
+                id: "app".to_string(),
+                name: "App".to_string(),
+                cwd: PathBuf::from("C:/workspace/src"),
+                shell: "pwsh".to_string(),
+                command: Some("cargo run".to_string()),
+                auto_start: false,
+            }],
         };
 
-        let output = format_inspection(&root.join("workspace.dpane"), &config)
-            .expect("inspection should format");
+        let output = format_workspace_inspection(&workspace);
 
         assert!(output.contains("Workspace: Test Workspace"));
         assert!(output.contains("Scrollback: 2000"));
