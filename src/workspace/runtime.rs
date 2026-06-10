@@ -73,6 +73,11 @@ impl WorkspaceRuntime {
     pub fn pane_mut(&mut self, pane_id: &str) -> Option<&mut PaneRuntime> {
         self.panes.iter_mut().find(|pane| pane.pane.id == pane_id)
     }
+
+    /// Returns the workspace name for this runtime.
+    pub fn workspace_name(&self) -> &str {
+        &self.workspace.name
+    }
 }
 
 #[cfg(test)]
@@ -115,6 +120,7 @@ mod tests {
     fn workspace_runtime_starts_all_panes_idle() {
         let runtime = WorkspaceRuntime::new(workspace());
 
+        assert_eq!(runtime.workspace_name(), "Test Workspace");
         assert_eq!(runtime.panes.len(), 2);
         assert!(
             runtime

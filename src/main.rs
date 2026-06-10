@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod output;
+mod process;
 mod workspace;
 
 use crate::cli::{Cli, Command};
