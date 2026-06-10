@@ -1,0 +1,19 @@
+version: 1
+
+name: DevPane Development
+
+root: ..
+
+settings:
+  shell: pwsh
+  auto_start: true
+  scrollback: 1000
+
+layout:
+  pane: app
+
+panes:
+  app:
+    name: App
+    cwd: src
+    command: cargo run
