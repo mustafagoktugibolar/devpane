@@ -27,10 +27,6 @@ pub enum LaunchMode {
     Headless,
 }
 
-/// Builds an interactive process launch plan for a workspace pane.
-pub fn build_launch(pane: &WorkspacePane) -> ProcessLaunch {
-    build_launch_with_mode(pane, LaunchMode::Interactive)
-}
 
 /// Builds a process launch plan for a workspace pane.
 pub fn build_launch_with_mode(pane: &WorkspacePane, mode: LaunchMode) -> ProcessLaunch {

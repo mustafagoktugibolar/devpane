@@ -1,4 +1,4 @@
-use crate::process::launch::{LaunchMode, ProcessLaunch, build_launch, build_launch_with_mode};
+use crate::process::launch::{LaunchMode, ProcessLaunch, build_launch_with_mode};
 use crate::workspace::{PaneStatus, WorkspaceRuntime};
 use anyhow::{Result, bail};
 
@@ -13,24 +13,6 @@ impl ProcessManager {
     /// Creates a process manager.
     pub fn new() -> ProcessManager {
         ProcessManager
-    }
-
-    /// Starts a pane lifecycle.
-    ///
-    /// This currently moves the pane from `Idle`, `Exited`, or `Failed` into
-    /// `Starting`. Later this method will spawn the pane process or PTY before
-    /// moving it to `Running`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the pane id is unknown or if the pane is already
-    /// starting or running.
-    pub fn start_pane(
-        &self,
-        runtime: &mut WorkspaceRuntime,
-        pane_id: &str,
-    ) -> Result<ProcessLaunch> {
-        self.start_pane_with_mode(runtime, pane_id, LaunchMode::Interactive)
     }
 
     /// Starts a pane lifecycle using the requested launch mode.
@@ -51,11 +33,7 @@ impl ProcessManager {
 
         match pane.status {
             PaneStatus::Idle | PaneStatus::Exited { .. } | PaneStatus::Failed { .. } => {
-                let launch = if mode == LaunchMode::Interactive {
-                    build_launch(&pane.pane)
-                } else {
-                    build_launch_with_mode(&pane.pane, mode)
-                };
+                let launch = build_launch_with_mode(&pane.pane, mode);
                 pane.status = PaneStatus::Starting;
                 Ok(launch)
             }
@@ -166,7 +144,7 @@ mod tests {
         let mut runtime = runtime();
 
         manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect("pane should start");
 
         assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
@@ -178,14 +156,14 @@ mod tests {
         let mut runtime = runtime();
 
         manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect("pane should start");
         manager
             .mark_running(&mut runtime, "app")
             .expect("pane should become running");
 
         let error = manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect_err("running pane should not start again");
 
         assert!(
@@ -218,7 +196,7 @@ mod tests {
             .mark_exited(&mut runtime, "app", Some(0))
             .expect("pane should be marked exited");
         manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect("exited pane should start again");
 
         assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
@@ -230,7 +208,7 @@ mod tests {
         let mut runtime = runtime();
 
         let error = manager
-            .start_pane(&mut runtime, "missing")
+            .start_pane_with_mode(&mut runtime, "missing", LaunchMode::Interactive)
             .expect_err("unknown pane should fail");
 
         assert!(
@@ -248,7 +226,7 @@ mod tests {
             .mark_failed(&mut runtime, "app", "spawn failed")
             .expect("pane should be marked failed");
         manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect("failed pane should start again");
 
         assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
@@ -260,7 +238,7 @@ mod tests {
         let mut runtime = runtime();
 
         let launch = manager
-            .start_pane(&mut runtime, "app")
+            .start_pane_with_mode(&mut runtime, "app", LaunchMode::Interactive)
             .expect("pane should start");
 
         assert_eq!(launch.pane_id, "app");

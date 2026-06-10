@@ -86,28 +86,22 @@ fn run_workspace(config_path: &Path) -> anyhow::Result<()> {
         }
     };
 
-    match outcome {
-        RunOutcome::Completed(results) => {
-            for result in &results {
-                manager.mark_exited(&mut runtime, &result.pane_id, result.code)?;
-            }
-
-            print!("{}", format_process_results(&results));
-        }
-        RunOutcome::Interrupted(results) => {
-            for result in &results {
-                manager.mark_exited(&mut runtime, &result.pane_id, result.code)?;
-            }
-
-            println!("Interrupted. Child processes stopped.");
-        }
+    let (results, interrupt_message) = match outcome {
+        RunOutcome::Completed(results) => (results, None),
+        RunOutcome::Interrupted(results) => (results, Some("Interrupted. Child processes stopped.")),
         RunOutcome::ForcedInterrupted(results) => {
-            for result in &results {
-                manager.mark_exited(&mut runtime, &result.pane_id, result.code)?;
-            }
-
-            println!("Interrupted again. Exiting DevPane.");
+            (results, Some("Interrupted again. Exiting DevPane."))
         }
+    };
+
+    for result in &results {
+        manager.mark_exited(&mut runtime, &result.pane_id, result.code)?;
+    }
+
+    print!("{}", format_process_results(&results));
+
+    if let Some(message) = interrupt_message {
+        println!("{message}");
     }
 
     Ok(())
@@ -136,13 +130,7 @@ fn build_auto_start_launches(
         .collect();
 
     for pane_id in auto_start_ids {
-        let launch = if launch_mode == LaunchMode::Interactive {
-            manager.start_pane(&mut runtime, &pane_id)?
-        } else {
-            manager.start_pane_with_mode(&mut runtime, &pane_id, launch_mode)?
-        };
-
-        launches.push(launch);
+        launches.push(manager.start_pane_with_mode(&mut runtime, &pane_id, launch_mode)?);
     }
 
     Ok((workspace_name, launches, runtime))
