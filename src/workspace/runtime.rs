@@ -10,15 +10,18 @@ pub enum PaneStatus {
     Starting,
 
     /// Pane process is running.
+    #[allow(dead_code)]
     Running,
 
     /// Pane process exited.
+    #[allow(dead_code)]
     Exited {
         /// Process exit code, if the platform provides one.
         code: Option<i32>,
     },
 
     /// Pane process failed before or during execution.
+    #[allow(dead_code)]
     Failed {
         /// Human readable failure message.
         message: String,
@@ -65,6 +68,7 @@ impl WorkspaceRuntime {
     }
 
     /// Returns the runtime state for a pane id.
+    #[allow(dead_code)]
     pub fn pane(&self, pane_id: &str) -> Option<&PaneRuntime> {
         self.panes.iter().find(|pane| pane.pane.id == pane_id)
     }

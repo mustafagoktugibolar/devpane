@@ -1,4 +1,5 @@
 use crate::config::{DevPaneConfig, LayoutNode, SplitDirection};
+use crate::process::launch::ProcessLaunch;
 use crate::workspace::Workspace;
 use std::fmt::Write;
 use std::path::Path;
@@ -39,6 +40,31 @@ pub fn format_workspace_inspection(workspace: &Workspace) -> String {
         writeln!(output, "  auto_start: {}", pane.auto_start)
             .expect("writing to String should not fail");
         writeln!(output, "  command: {}", command).expect("writing to String should not fail");
+    }
+
+    output
+}
+
+/// Formats the process launch plan for auto-start panes.
+pub fn format_launch_plan(workspace_name: &str, launches: &[ProcessLaunch]) -> String {
+    let mut output = String::new();
+
+    writeln!(output, "Workspace: {}", workspace_name).expect("writing to String should not fail");
+    writeln!(output, "Auto-start panes:").expect("writing to String should not fail");
+
+    if launches.is_empty() {
+        writeln!(output, "<none>").expect("writing to String should not fail");
+        return output;
+    }
+
+    for launch in launches {
+        writeln!(output, "- {}", launch.pane_id).expect("writing to String should not fail");
+        writeln!(output, "  cwd: {}", launch.cwd.display())
+            .expect("writing to String should not fail");
+        writeln!(output, "  program: {}", launch.program)
+            .expect("writing to String should not fail");
+        writeln!(output, "  args: {}", format_args(&launch.args))
+            .expect("writing to String should not fail");
     }
 
     output
@@ -91,6 +117,14 @@ fn format_size(size: Option<u16>) -> String {
     }
 }
 
+fn format_args(args: &[String]) -> String {
+    if args.is_empty() {
+        "<none>".to_string()
+    } else {
+        args.join(" ")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +164,36 @@ mod tests {
         assert!(output.contains("  shell: pwsh"));
         assert!(output.contains("  auto_start: false"));
         assert!(output.contains("  command: cargo run"));
+    }
+
+    #[test]
+    fn format_launch_plan_includes_program_arguments_and_cwd() {
+        let launches = vec![ProcessLaunch {
+            pane_id: "app".to_string(),
+            cwd: PathBuf::from("C:/workspace/src"),
+            program: "pwsh".to_string(),
+            args: vec![
+                "-NoExit".to_string(),
+                "-Command".to_string(),
+                "cargo run".to_string(),
+            ],
+        }];
+
+        let output = format_launch_plan("Test Workspace", &launches);
+
+        assert!(output.contains("Workspace: Test Workspace"));
+        assert!(output.contains("Auto-start panes:"));
+        assert!(output.contains("- app"));
+        assert!(output.contains("  cwd: C:/workspace/src"));
+        assert!(output.contains("  program: pwsh"));
+        assert!(output.contains("  args: -NoExit -Command cargo run"));
+    }
+
+    #[test]
+    fn format_launch_plan_handles_empty_launches() {
+        let output = format_launch_plan("Test Workspace", &[]);
+
+        assert!(output.contains("Auto-start panes:"));
+        assert!(output.contains("<none>"));
     }
 }

@@ -50,6 +50,7 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown or the pane is not starting.
+    #[allow(dead_code)]
     pub fn mark_running(&self, runtime: &mut WorkspaceRuntime, pane_id: &str) -> Result<()> {
         let pane = runtime
             .pane_mut(pane_id)
@@ -68,6 +69,7 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown.
+    #[allow(dead_code)]
     pub fn mark_exited(
         &self,
         runtime: &mut WorkspaceRuntime,
@@ -87,6 +89,7 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown.
+    #[allow(dead_code)]
     pub fn mark_failed(
         &self,
         runtime: &mut WorkspaceRuntime,

@@ -26,6 +26,12 @@ pub enum Command {
         /// Path to the `.dpane` file.
         path: PathBuf,
     },
+
+    /// Print the process launch plan for auto-start panes.
+    Plan {
+        /// Path to the `.dpane` file.
+        path: PathBuf,
+    },
 }
 
 #[cfg(test)]
@@ -40,7 +46,7 @@ mod tests {
             Command::Validate { path } => {
                 assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
             }
-            Command::Inspect { .. } => panic!("expected validate command"),
+            Command::Inspect { .. } | Command::Plan { .. } => panic!("expected validate command"),
         }
     }
 
@@ -52,7 +58,21 @@ mod tests {
             Command::Inspect { path } => {
                 assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
             }
-            Command::Validate { .. } => panic!("expected inspect command"),
+            Command::Validate { .. } | Command::Plan { .. } => panic!("expected inspect command"),
+        }
+    }
+
+    #[test]
+    fn parses_plan_command() {
+        let cli = Cli::parse_from(["devpane", "plan", "examples/webclient.dpane"]);
+
+        match cli.command {
+            Command::Plan { path } => {
+                assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
+            }
+            Command::Validate { .. } | Command::Inspect { .. } => {
+                panic!("expected plan command")
+            }
         }
     }
 }
