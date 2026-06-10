@@ -1,16 +1,41 @@
+mod cli;
 mod config;
 
+use crate::cli::{Cli, Command};
 use crate::config::{DevPaneConfig, validate_config};
+use clap::Parser;
 use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
-    let config_path = Path::new("examples/webclient.dpane");
+    let cli = Cli::parse();
 
+    match cli.command {
+        Command::Validate { path } => validate_workspace(&path),
+        Command::Inspect { path } => inspect_workspace(&path),
+    }
+}
+
+fn load_validated_config(config_path: &Path) -> anyhow::Result<DevPaneConfig> {
     println!("Loading config from: {}", config_path.display());
 
     let config = DevPaneConfig::load_from_file(config_path)?;
     validate_config(&config, config_path)?;
 
+    Ok(config)
+}
+
+fn validate_workspace(config_path: &Path) -> anyhow::Result<()> {
+    let config = load_validated_config(config_path)?;
+
+    println!("Valid .dpane file: {}", config_path.display());
+    println!("Workspace: {}", config.name);
+    println!("Panes: {}", config.panes.len());
+
+    Ok(())
+}
+
+fn inspect_workspace(config_path: &Path) -> anyhow::Result<()> {
+    let config = load_validated_config(config_path)?;
     let workspace_root = config.workspace_root(config_path)?;
 
     println!("Workspace: {}", config.name);

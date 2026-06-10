@@ -64,3 +64,88 @@ impl DevPaneConfig {
             .with_context(|| format!("failed to resolve pane cwd: {}", cwd.display()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::LayoutNode;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after UNIX epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("devpane-{name}-{unique}"))
+    }
+
+    fn config_with_root(root: Option<PathBuf>) -> DevPaneConfig {
+        DevPaneConfig {
+            version: 1,
+            name: "Test Workspace".to_string(),
+            root,
+            settings: None,
+            layout: LayoutNode::Pane {
+                pane: "app".to_string(),
+                size: None,
+            },
+            panes: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn workspace_root_resolves_relative_root_from_config_directory() {
+        let root = test_dir("relative-root");
+        let config_dir = root.join("examples");
+        let workspace_dir = root.join("workspace");
+        fs::create_dir_all(&config_dir).expect("config directory should be created");
+        fs::create_dir_all(&workspace_dir).expect("workspace directory should be created");
+
+        let config_path = config_dir.join("workspace.dpane");
+        let config = config_with_root(Some(PathBuf::from("../workspace")));
+
+        let resolved = config
+            .workspace_root(&config_path)
+            .expect("workspace root should resolve");
+
+        assert_eq!(
+            resolved,
+            workspace_dir
+                .canonicalize()
+                .expect("workspace directory should canonicalize")
+        );
+    }
+
+    #[test]
+    fn pane_cwd_resolves_relative_cwd_from_workspace_root() {
+        let root = test_dir("pane-cwd");
+        let config_dir = root.join("examples");
+        let workspace_dir = root.join("workspace");
+        let pane_dir = workspace_dir.join("src");
+        fs::create_dir_all(&config_dir).expect("config directory should be created");
+        fs::create_dir_all(&pane_dir).expect("pane directory should be created");
+
+        let config_path = config_dir.join("workspace.dpane");
+        let config = config_with_root(Some(PathBuf::from("../workspace")));
+        let pane = PaneConfig {
+            name: None,
+            cwd: Some(PathBuf::from("src")),
+            shell: None,
+            command: None,
+            auto_start: None,
+        };
+
+        let resolved = config
+            .pane_cwd(&config_path, &pane)
+            .expect("pane cwd should resolve");
+
+        assert_eq!(
+            resolved,
+            pane_dir
+                .canonicalize()
+                .expect("pane directory should canonicalize")
+        );
+    }
+}

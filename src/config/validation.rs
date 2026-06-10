@@ -61,3 +61,98 @@ fn validate_layout_node(node: &LayoutNode, config: &DevPaneConfig) -> Result<()>
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{PaneConfig, SplitDirection};
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after UNIX epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("devpane-{name}-{unique}"))
+    }
+
+    fn valid_config(root: PathBuf) -> DevPaneConfig {
+        let mut panes = HashMap::new();
+        panes.insert(
+            "app".to_string(),
+            PaneConfig {
+                name: Some("App".to_string()),
+                cwd: None,
+                shell: None,
+                command: Some("cargo run".to_string()),
+                auto_start: None,
+            },
+        );
+
+        DevPaneConfig {
+            version: 1,
+            name: "Test Workspace".to_string(),
+            root: Some(root),
+            settings: None,
+            layout: LayoutNode::Pane {
+                pane: "app".to_string(),
+                size: None,
+            },
+            panes,
+        }
+    }
+
+    #[test]
+    fn validate_config_accepts_valid_workspace() {
+        let root = test_dir("valid-workspace");
+        fs::create_dir_all(&root).expect("workspace root should be created");
+        let config_path = root.join("workspace.dpane");
+        let config = valid_config(root);
+
+        validate_config(&config, &config_path).expect("valid config should pass validation");
+    }
+
+    #[test]
+    fn validate_config_rejects_unknown_layout_pane() {
+        let root = test_dir("unknown-pane");
+        fs::create_dir_all(&root).expect("workspace root should be created");
+        let config_path = root.join("workspace.dpane");
+        let mut config = valid_config(root);
+        config.layout = LayoutNode::Pane {
+            pane: "missing".to_string(),
+            size: None,
+        };
+
+        let error = validate_config(&config, &config_path).expect_err("unknown pane should fail");
+
+        assert!(
+            error.to_string().contains("layout references unknown pane"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn validate_config_rejects_empty_split() {
+        let root = test_dir("empty-split");
+        fs::create_dir_all(&root).expect("workspace root should be created");
+        let config_path = root.join("workspace.dpane");
+        let mut config = valid_config(root);
+        config.layout = LayoutNode::Split {
+            direction: SplitDirection::Horizontal,
+            size: None,
+            children: Vec::new(),
+        };
+
+        let error = validate_config(&config, &config_path).expect_err("empty split should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("layout split must contain at least one child"),
+            "unexpected error: {error:#}"
+        );
+    }
+}
