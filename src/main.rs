@@ -88,7 +88,9 @@ fn run_workspace(config_path: &Path) -> anyhow::Result<()> {
 
     let (results, interrupt_message) = match outcome {
         RunOutcome::Completed(results) => (results, None),
-        RunOutcome::Interrupted(results) => (results, Some("Interrupted. Child processes stopped.")),
+        RunOutcome::Interrupted(results) => {
+            (results, Some("Interrupted. Child processes stopped."))
+        }
         RunOutcome::ForcedInterrupted(results) => {
             (results, Some("Interrupted again. Exiting DevPane."))
         }

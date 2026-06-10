@@ -27,7 +27,6 @@ pub enum LaunchMode {
     Headless,
 }
 
-
 /// Builds a process launch plan for a workspace pane.
 pub fn build_launch_with_mode(pane: &WorkspacePane, mode: LaunchMode) -> ProcessLaunch {
     ProcessLaunch {
@@ -81,7 +80,7 @@ mod tests {
 
     #[test]
     fn build_launch_uses_pane_shell_as_program() {
-        let launch = build_launch(&pane(None));
+        let launch = build_launch_with_mode(&pane(None), LaunchMode::Interactive);
 
         assert_eq!(launch.pane_id, "app");
         assert_eq!(launch.program, "pwsh");
@@ -92,7 +91,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn build_launch_wraps_command_for_windows_shell() {
-        let launch = build_launch(&pane(Some("cargo run")));
+        let launch = build_launch_with_mode(&pane(Some("cargo run")), LaunchMode::Interactive);
 
         assert_eq!(
             launch.args,
