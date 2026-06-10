@@ -10,18 +10,15 @@ pub enum PaneStatus {
     Starting,
 
     /// Pane process is running.
-    #[allow(dead_code)]
     Running,
 
     /// Pane process exited.
-    #[allow(dead_code)]
     Exited {
         /// Process exit code, if the platform provides one.
         code: Option<i32>,
     },
 
     /// Pane process failed before or during execution.
-    #[allow(dead_code)]
     Failed {
         /// Human readable failure message.
         message: String,
@@ -65,12 +62,6 @@ impl WorkspaceRuntime {
             .collect();
 
         WorkspaceRuntime { workspace, panes }
-    }
-
-    /// Returns the runtime state for a pane id.
-    #[allow(dead_code)]
-    pub fn pane(&self, pane_id: &str) -> Option<&PaneRuntime> {
-        self.panes.iter().find(|pane| pane.pane.id == pane_id)
     }
 
     /// Returns mutable runtime state for a pane id.
@@ -144,12 +135,19 @@ mod tests {
             .status = PaneStatus::Starting;
 
         assert_eq!(
-            runtime.pane("app").expect("app pane should exist").status,
+            runtime
+                .panes
+                .iter()
+                .find(|pane| pane.pane.id == "app")
+                .expect("app pane should exist")
+                .status,
             PaneStatus::Starting
         );
         assert_eq!(
             runtime
-                .pane("worker")
+                .panes
+                .iter()
+                .find(|pane| pane.pane.id == "worker")
                 .expect("worker pane should exist")
                 .status,
             PaneStatus::Idle

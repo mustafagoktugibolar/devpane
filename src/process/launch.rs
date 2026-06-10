@@ -17,30 +17,51 @@ pub struct ProcessLaunch {
     pub args: Vec<String>,
 }
 
-/// Builds a process launch plan for a workspace pane.
+/// Launch mode used when wrapping pane startup commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaunchMode {
+    /// Keep the shell open after the startup command where the platform shell supports it.
+    Interactive,
+
+    /// Exit the shell when the startup command finishes.
+    Headless,
+}
+
+/// Builds an interactive process launch plan for a workspace pane.
 pub fn build_launch(pane: &WorkspacePane) -> ProcessLaunch {
+    build_launch_with_mode(pane, LaunchMode::Interactive)
+}
+
+/// Builds a process launch plan for a workspace pane.
+pub fn build_launch_with_mode(pane: &WorkspacePane, mode: LaunchMode) -> ProcessLaunch {
     ProcessLaunch {
         pane_id: pane.id.clone(),
         cwd: pane.cwd.clone(),
         program: pane.shell.clone(),
-        args: shell_args(pane.command.as_deref()),
+        args: shell_args(pane.command.as_deref(), mode),
     }
 }
 
 #[cfg(windows)]
-fn shell_args(command: Option<&str>) -> Vec<String> {
+fn shell_args(command: Option<&str>, mode: LaunchMode) -> Vec<String> {
     match command {
-        Some(command) => vec![
-            "-NoExit".to_string(),
-            "-Command".to_string(),
-            command.to_string(),
-        ],
+        Some(command) => {
+            let mut args = Vec::new();
+
+            if mode == LaunchMode::Interactive {
+                args.push("-NoExit".to_string());
+            }
+
+            args.push("-Command".to_string());
+            args.push(command.to_string());
+            args
+        }
         None => Vec::new(),
     }
 }
 
 #[cfg(not(windows))]
-fn shell_args(command: Option<&str>) -> Vec<String> {
+fn shell_args(command: Option<&str>, _mode: LaunchMode) -> Vec<String> {
     match command {
         Some(command) => vec!["-lc".to_string(), command.to_string()],
         None => Vec::new(),
@@ -84,6 +105,17 @@ mod tests {
                 "-Command".to_string(),
                 "cargo run".to_string()
             ]
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_headless_launch_exits_after_windows_command() {
+        let launch = build_launch_with_mode(&pane(Some("cargo run")), LaunchMode::Headless);
+
+        assert_eq!(
+            launch.args,
+            vec!["-Command".to_string(), "cargo run".to_string()]
         );
     }
 

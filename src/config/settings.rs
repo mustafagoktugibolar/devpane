@@ -2,7 +2,7 @@ use super::{DevPaneConfig, PaneConfig};
 
 /// Default shell used when neither the pane nor global settings define one.
 #[cfg(windows)]
-pub const DEFAULT_SHELL: &str = "pwsh";
+pub const DEFAULT_SHELL: &str = "powershell";
 
 /// Default shell used when neither the pane nor global settings define one.
 #[cfg(target_os = "macos")]

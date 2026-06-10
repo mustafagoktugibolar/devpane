@@ -1,19 +1,18 @@
 version: 1
 
-name: DevPane Development
+name: ICRON WebClient Development
 
-root: ..
+root: C:\dev\ICRON_WebClient
 
 settings:
-  shell: pwsh
   auto_start: true
   scrollback: 1000
 
 layout:
-  pane: app
+  pane: webclient
 
 panes:
-  app:
-    name: App
-    cwd: src
-    command: cargo run
+  webclient:
+    name: WebClient
+    cwd: web-client
+    command: npm run dev

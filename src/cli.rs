@@ -32,6 +32,12 @@ pub enum Command {
         /// Path to the `.dpane` file.
         path: PathBuf,
     },
+
+    /// Run auto-start panes and wait for them to exit.
+    Run {
+        /// Path to the `.dpane` file.
+        path: PathBuf,
+    },
 }
 
 #[cfg(test)]
@@ -46,7 +52,9 @@ mod tests {
             Command::Validate { path } => {
                 assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
             }
-            Command::Inspect { .. } | Command::Plan { .. } => panic!("expected validate command"),
+            Command::Inspect { .. } | Command::Plan { .. } | Command::Run { .. } => {
+                panic!("expected validate command")
+            }
         }
     }
 
@@ -58,7 +66,9 @@ mod tests {
             Command::Inspect { path } => {
                 assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
             }
-            Command::Validate { .. } | Command::Plan { .. } => panic!("expected inspect command"),
+            Command::Validate { .. } | Command::Plan { .. } | Command::Run { .. } => {
+                panic!("expected inspect command")
+            }
         }
     }
 
@@ -70,8 +80,22 @@ mod tests {
             Command::Plan { path } => {
                 assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
             }
-            Command::Validate { .. } | Command::Inspect { .. } => {
+            Command::Validate { .. } | Command::Inspect { .. } | Command::Run { .. } => {
                 panic!("expected plan command")
+            }
+        }
+    }
+
+    #[test]
+    fn parses_run_command() {
+        let cli = Cli::parse_from(["devpane", "run", "examples/webclient.dpane"]);
+
+        match cli.command {
+            Command::Run { path } => {
+                assert_eq!(path, PathBuf::from("examples/webclient.dpane"));
+            }
+            Command::Validate { .. } | Command::Inspect { .. } | Command::Plan { .. } => {
+                panic!("expected run command")
             }
         }
     }

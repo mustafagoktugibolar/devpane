@@ -1,4 +1,4 @@
-use crate::process::launch::{ProcessLaunch, build_launch};
+use crate::process::launch::{LaunchMode, ProcessLaunch, build_launch, build_launch_with_mode};
 use crate::workspace::{PaneStatus, WorkspaceRuntime};
 use anyhow::{Result, bail};
 
@@ -30,13 +30,32 @@ impl ProcessManager {
         runtime: &mut WorkspaceRuntime,
         pane_id: &str,
     ) -> Result<ProcessLaunch> {
+        self.start_pane_with_mode(runtime, pane_id, LaunchMode::Interactive)
+    }
+
+    /// Starts a pane lifecycle using the requested launch mode.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the pane id is unknown or if the pane is already
+    /// starting or running.
+    pub fn start_pane_with_mode(
+        &self,
+        runtime: &mut WorkspaceRuntime,
+        pane_id: &str,
+        mode: LaunchMode,
+    ) -> Result<ProcessLaunch> {
         let pane = runtime
             .pane_mut(pane_id)
             .ok_or_else(|| anyhow::anyhow!("unknown pane: {}", pane_id))?;
 
         match pane.status {
             PaneStatus::Idle | PaneStatus::Exited { .. } | PaneStatus::Failed { .. } => {
-                let launch = build_launch(&pane.pane);
+                let launch = if mode == LaunchMode::Interactive {
+                    build_launch(&pane.pane)
+                } else {
+                    build_launch_with_mode(&pane.pane, mode)
+                };
                 pane.status = PaneStatus::Starting;
                 Ok(launch)
             }
@@ -50,7 +69,6 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown or the pane is not starting.
-    #[allow(dead_code)]
     pub fn mark_running(&self, runtime: &mut WorkspaceRuntime, pane_id: &str) -> Result<()> {
         let pane = runtime
             .pane_mut(pane_id)
@@ -69,7 +87,6 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown.
-    #[allow(dead_code)]
     pub fn mark_exited(
         &self,
         runtime: &mut WorkspaceRuntime,
@@ -89,7 +106,6 @@ impl ProcessManager {
     /// # Errors
     ///
     /// Returns an error if the pane id is unknown.
-    #[allow(dead_code)]
     pub fn mark_failed(
         &self,
         runtime: &mut WorkspaceRuntime,
@@ -134,6 +150,16 @@ mod tests {
         })
     }
 
+    fn pane_status(runtime: &WorkspaceRuntime, pane_id: &str) -> PaneStatus {
+        runtime
+            .panes
+            .iter()
+            .find(|pane| pane.pane.id == pane_id)
+            .expect("pane should exist")
+            .status
+            .clone()
+    }
+
     #[test]
     fn start_pane_moves_idle_pane_to_starting() {
         let manager = ProcessManager::new();
@@ -143,10 +169,7 @@ mod tests {
             .start_pane(&mut runtime, "app")
             .expect("pane should start");
 
-        assert_eq!(
-            runtime.pane("app").expect("pane should exist").status,
-            PaneStatus::Starting
-        );
+        assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
     }
 
     #[test]
@@ -198,10 +221,7 @@ mod tests {
             .start_pane(&mut runtime, "app")
             .expect("exited pane should start again");
 
-        assert_eq!(
-            runtime.pane("app").expect("pane should exist").status,
-            PaneStatus::Starting
-        );
+        assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
     }
 
     #[test]
@@ -231,10 +251,7 @@ mod tests {
             .start_pane(&mut runtime, "app")
             .expect("failed pane should start again");
 
-        assert_eq!(
-            runtime.pane("app").expect("pane should exist").status,
-            PaneStatus::Starting
-        );
+        assert_eq!(pane_status(&runtime, "app"), PaneStatus::Starting);
     }
 
     #[test]

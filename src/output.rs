@@ -1,5 +1,6 @@
 use crate::config::{DevPaneConfig, LayoutNode, SplitDirection};
 use crate::process::launch::ProcessLaunch;
+use crate::process::runner::ProcessResult;
 use crate::workspace::Workspace;
 use std::fmt::Write;
 use std::path::Path;
@@ -70,6 +71,30 @@ pub fn format_launch_plan(workspace_name: &str, launches: &[ProcessLaunch]) -> S
     output
 }
 
+/// Formats completed pane process results.
+pub fn format_process_results(results: &[ProcessResult]) -> String {
+    let mut output = String::new();
+
+    writeln!(output, "Process results:").expect("writing to String should not fail");
+
+    if results.is_empty() {
+        writeln!(output, "<none>").expect("writing to String should not fail");
+        return output;
+    }
+
+    for result in results {
+        writeln!(
+            output,
+            "- {} exited with {}",
+            result.pane_id,
+            format_exit_code(result.code)
+        )
+        .expect("writing to String should not fail");
+    }
+
+    output
+}
+
 fn format_layout_node(output: &mut String, node: &LayoutNode) {
     format_layout_node_at_depth(output, node, 0);
 }
@@ -122,6 +147,13 @@ fn format_args(args: &[String]) -> String {
         "<none>".to_string()
     } else {
         args.join(" ")
+    }
+}
+
+fn format_exit_code(code: Option<i32>) -> String {
+    match code {
+        Some(code) => format!("code {code}"),
+        None => "unknown code".to_string(),
     }
 }
 
@@ -195,5 +227,16 @@ mod tests {
 
         assert!(output.contains("Auto-start panes:"));
         assert!(output.contains("<none>"));
+    }
+
+    #[test]
+    fn format_process_results_includes_exit_codes() {
+        let output = format_process_results(&[ProcessResult {
+            pane_id: "app".to_string(),
+            code: Some(0),
+        }]);
+
+        assert!(output.contains("Process results:"));
+        assert!(output.contains("- app exited with code 0"));
     }
 }
