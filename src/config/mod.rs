@@ -1,5 +1,6 @@
 mod model;
 mod paths;
+mod settings;
 mod validation;
 
 pub use model::*;
