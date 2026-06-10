@@ -1,4 +1,5 @@
 use crate::config::{DevPaneConfig, LayoutNode, SplitDirection};
+use crate::workspace::{Workspace, build_workspace};
 use anyhow::Result;
 use std::fmt::Write;
 use std::path::Path;
@@ -19,38 +20,46 @@ pub fn format_validation_success(config_path: &Path, config: &DevPaneConfig) -> 
 ///
 /// Returns an error if workspace or pane paths cannot be resolved.
 pub fn format_inspection(config_path: &Path, config: &DevPaneConfig) -> Result<String> {
-    let mut output = String::new();
-    let workspace_root = config.workspace_root(config_path)?;
-
-    writeln!(output, "Workspace: {}", config.name)?;
-    writeln!(output, "Version: {}", config.version)?;
-    writeln!(output, "Workspace root: {}", workspace_root.display())?;
-    writeln!(output, "Scrollback: {}", config.scrollback())?;
-    writeln!(output)?;
-    writeln!(output, "Layout:")?;
-    format_layout_node(&mut output, &config.layout, 0)?;
-    writeln!(output)?;
-    writeln!(output, "Panes:")?;
-
-    for (pane_id, pane) in &config.panes {
-        let pane_name = pane.name.as_deref().unwrap_or(pane_id);
-        let pane_cwd = config.pane_cwd(config_path, pane)?;
-        let pane_shell = config.pane_shell(pane);
-        let pane_auto_start = config.pane_auto_start(pane);
-        let command = pane.command.as_deref().unwrap_or("<no command>");
-
-        writeln!(output, "- {}", pane_id)?;
-        writeln!(output, "  name: {}", pane_name)?;
-        writeln!(output, "  cwd: {}", pane_cwd.display())?;
-        writeln!(output, "  shell: {}", pane_shell)?;
-        writeln!(output, "  auto_start: {}", pane_auto_start)?;
-        writeln!(output, "  command: {}", command)?;
-    }
-
-    Ok(output)
+    let workspace = build_workspace(config_path, config)?;
+    Ok(format_workspace_inspection(&workspace))
 }
 
-fn format_layout_node(output: &mut String, node: &LayoutNode, depth: usize) -> Result<()> {
+/// Formats a resolved runtime workspace summary.
+pub fn format_workspace_inspection(workspace: &Workspace) -> String {
+    let mut output = String::new();
+
+    writeln!(output, "Workspace: {}", workspace.name).expect("writing to String should not fail");
+    writeln!(output, "Workspace root: {}", workspace.root.display())
+        .expect("writing to String should not fail");
+    writeln!(output, "Scrollback: {}", workspace.scrollback)
+        .expect("writing to String should not fail");
+    writeln!(output).expect("writing to String should not fail");
+    writeln!(output, "Layout:").expect("writing to String should not fail");
+    format_layout_node(&mut output, &workspace.layout);
+    writeln!(output).expect("writing to String should not fail");
+    writeln!(output, "Panes:").expect("writing to String should not fail");
+
+    for pane in &workspace.panes {
+        let command = pane.command.as_deref().unwrap_or("<no command>");
+
+        writeln!(output, "- {}", pane.id).expect("writing to String should not fail");
+        writeln!(output, "  name: {}", pane.name).expect("writing to String should not fail");
+        writeln!(output, "  cwd: {}", pane.cwd.display())
+            .expect("writing to String should not fail");
+        writeln!(output, "  shell: {}", pane.shell).expect("writing to String should not fail");
+        writeln!(output, "  auto_start: {}", pane.auto_start)
+            .expect("writing to String should not fail");
+        writeln!(output, "  command: {}", command).expect("writing to String should not fail");
+    }
+
+    output
+}
+
+fn format_layout_node(output: &mut String, node: &LayoutNode) {
+    format_layout_node_at_depth(output, node, 0);
+}
+
+fn format_layout_node_at_depth(output: &mut String, node: &LayoutNode, depth: usize) {
     let indent = "  ".repeat(depth);
 
     match node {
@@ -65,18 +74,18 @@ fn format_layout_node(output: &mut String, node: &LayoutNode, depth: usize) -> R
                 indent,
                 format_direction(direction),
                 format_size(*size)
-            )?;
+            )
+            .expect("writing to String should not fail");
 
             for child in children {
-                format_layout_node(output, child, depth + 1)?;
+                format_layout_node_at_depth(output, child, depth + 1);
             }
         }
         LayoutNode::Pane { pane, size } => {
-            writeln!(output, "{}- pane {}{}", indent, pane, format_size(*size))?;
+            writeln!(output, "{}- pane {}{}", indent, pane, format_size(*size))
+                .expect("writing to String should not fail");
         }
     }
-
-    Ok(())
 }
 
 fn format_direction(direction: &SplitDirection) -> &'static str {

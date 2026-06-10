@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Root workspace configuration loaded from a `.dpane` file.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct DevPaneConfig {
     /// Configuration schema version.
     pub version: u16,
@@ -27,7 +27,7 @@ pub struct DevPaneConfig {
 }
 
 /// Global workspace settings.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Settings {
     /// Default shell used by panes.
     ///
@@ -42,7 +42,7 @@ pub struct Settings {
 }
 
 /// Terminal pane definition.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PaneConfig {
     /// Human readable pane name.
     pub name: Option<String>,
@@ -65,7 +65,7 @@ pub struct PaneConfig {
 }
 
 /// Split direction for a layout container.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SplitDirection {
     Horizontal,
@@ -75,7 +75,7 @@ pub enum SplitDirection {
 /// Recursive layout node.
 ///
 /// A node can either be a split container or a terminal pane reference.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum LayoutNode {
     /// Split container with child layout nodes.

@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod output;
+mod workspace;
 
 use crate::cli::{Cli, Command};
 use crate::config::{DevPaneConfig, validate_config};
