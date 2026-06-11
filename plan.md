@@ -76,4 +76,4 @@ Başarı kriteri:
 - Rust backend kodunu sen yazacaksın; ben yönlendireceğim.
 - Frontend/Tauri aşamasına kadar ben repo dosyalarını değiştirmeyeceğim.
 - Her adım küçük olacak; anlamadan geçilmeyecek.
-- DevPane Windows-first, hafif, React/Electron’suz ilerleyecek.
+- DevPane cross-platform (Windows, macOS, Linux), hafif, React/Electron’suz ilerleyecek.
