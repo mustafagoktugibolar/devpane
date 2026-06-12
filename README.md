@@ -106,6 +106,20 @@ Equivalent long form:
 cargo tauri build
 ```
 
+## Release Installers
+
+GitHub Actions publishes desktop installers when a version tag is pushed:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Release` workflow builds DevPane on macOS, Windows, and Linux, then
+publishes the generated Tauri bundles to the GitHub Releases page. Keep
+`src-tauri/tauri.conf.json` version aligned with the tag before publishing a
+release.
+
 ## Development Checks
 
 ```powershell
