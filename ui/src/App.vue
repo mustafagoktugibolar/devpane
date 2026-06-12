@@ -54,13 +54,13 @@ async function refreshSessions() {
   sessions.value = await listRecentSessions();
 }
 
-function makePane(index: number): WorkspacePaneState {
+function makePane(index: number, shell?: string | null): WorkspacePaneState {
   return {
     id: `pane-${index}`,
     name: `Terminal ${index}`,
     command: '',
     cwd: null,
-    shell: null,
+    shell: shell ?? null,
     autoStart: true,
   };
 }
@@ -176,13 +176,13 @@ function focusPane(paneId: string) {
   };
 }
 
-function splitActivePane(direction: SplitDirection) {
+function splitActivePane(direction: SplitDirection, shell?: string | null) {
   if (!workspace.value) return;
 
   const activePaneId = workspace.value.activePaneId ?? firstPaneId(workspace.value.layout);
   if (!activePaneId) return;
 
-  const nextPane = makePane(nextPaneIndex());
+  const nextPane = makePane(nextPaneIndex(), shell);
 
   const nextLayout = insertPaneIntoLayout(workspace.value.layout, activePaneId, direction, nextPane.id);
   if (nextLayout === workspace.value.layout) return;
@@ -194,14 +194,6 @@ function splitActivePane(direction: SplitDirection) {
     activePaneId: nextPane.id,
     dirty: true,
   };
-}
-
-function addHorizontal() {
-  splitActivePane('horizontal');
-}
-
-function addVertical() {
-  splitActivePane('vertical');
 }
 
 function closeActiveTerminal() {
@@ -257,9 +249,14 @@ function resizeSplit(payload: { path: number[]; sizes: number[] }) {
   };
 }
 
+const saveCommandLogs = ref<Record<string, string[]>>({});
+
 async function requestSave() {
   if (!workspace.value) return;
   saveError.value = null;
+  saveCommandLogs.value = Object.fromEntries(
+    workspace.value.panes.map(pane => [pane.id, sessions_api.getCommandLog(pane.id)]),
+  );
   if (!workspace.value.path) {
     try {
       savePathSuggestion.value = await suggestWorkspacePath(workspace.value.name);
@@ -270,7 +267,7 @@ async function requestSave() {
   showSave.value = true;
 }
 
-async function confirmSave(payload: { name: string; path: string }) {
+async function confirmSave(payload: { name: string; path: string; commands: Record<string, string> }) {
   if (!workspace.value) return;
 
   if (!payload.name.trim()) {
@@ -283,11 +280,16 @@ async function confirmSave(payload: { name: string; path: string }) {
     return;
   }
 
+  const panes = workspace.value.panes.map(pane => ({
+    ...pane,
+    command: (payload.commands[pane.id] ?? pane.command).trim(),
+  }));
+
   try {
     const saved = await saveWorkspace(
       payload.path.trim(),
       payload.name.trim(),
-      workspace.value.panes,
+      panes,
       workspace.value.layout,
     );
     await addRecentSession(payload.path.trim(), saved.name);
@@ -314,12 +316,12 @@ async function confirmSave(payload: { name: string; path: string }) {
 <template>
   <Titlebar
     :has-workspace="mode === 'workspace'"
+    :dirty="workspace?.dirty"
     @new-session="startNewSession"
     @sessions="showSessions"
     @save="requestSave"
-    @add-terminal="addVertical"
-    @add-horizontal="addHorizontal"
-    @add-vertical="addVertical"
+    @split-right="(shell) => splitActivePane('vertical', shell)"
+    @split-down="(shell) => splitActivePane('horizontal', shell)"
     @close-terminal="closeActiveTerminal"
   />
 
@@ -347,6 +349,8 @@ async function confirmSave(payload: { name: string; path: string }) {
     :name="workspace.name"
     :path="workspace.path"
     :suggested-path="savePathSuggestion"
+    :panes="workspace.panes"
+    :command-logs="saveCommandLogs"
     :error="saveError"
     @cancel="showSave = false"
     @save="confirmSave"

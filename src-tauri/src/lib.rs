@@ -132,6 +132,11 @@ pub struct DraftPane {
 
     /// Optional startup command to persist for this pane.
     pub command: Option<String>,
+
+    /// Optional shell override chosen by the user in the UI.
+    ///
+    /// When set, takes precedence over whatever shell the existing file had.
+    pub shell: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -438,6 +443,19 @@ fn shell_program_name(shell: &str) -> String {
         .unwrap_or_else(|| shell.to_lowercase())
 }
 
+/// Joins a multi-line startup command into a single shell statement.
+///
+/// `.dpane` pane commands may contain one command per line (recorded session
+/// steps); each shell needs its own statement separator.
+fn join_command_steps(command: &str, separator: &str) -> String {
+    command
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(separator)
+}
+
 #[cfg(windows)]
 fn shell_command(shell: &str, command: Option<&str>, pane_name: &str) -> CommandBuilder {
     let mut builder = CommandBuilder::new(shell);
@@ -451,19 +469,20 @@ fn shell_command(shell: &str, command: Option<&str>, pane_name: &str) -> Command
             let mut startup = r#"function global:prompt { $location = $executionContext.SessionState.Path.CurrentLocation.Path; if ($location.StartsWith('\\?\')) { $location = $location.Substring(4) }; "[$env:DEVPANE_PANE_NAME] PS $location> " }"#.to_string();
             if let Some(command) = command {
                 startup.push_str("; ");
-                startup.push_str(command);
+                // Windows PowerShell 5.1 has no `&&`; `;` runs steps in order.
+                startup.push_str(&join_command_steps(command, "; "));
             }
 
             builder.args(["-Command", &startup]);
         }
         "cmd" => {
             if let Some(command) = command {
-                builder.args(["/K", command]);
+                builder.args(["/K", &join_command_steps(command, " && ")]);
             }
         }
         _ => {
             if let Some(command) = command {
-                builder.args(["-lc", command]);
+                builder.args(["-lc", &join_command_steps(command, " && ")]);
             }
         }
     }
@@ -477,7 +496,7 @@ fn shell_command(shell: &str, command: Option<&str>, pane_name: &str) -> Command
     builder.env("DEVPANE_PANE_NAME", pane_name);
 
     if let Some(command) = command.filter(|value| !value.trim().is_empty()) {
-        builder.args(["-lc", command]);
+        builder.args(["-lc", &join_command_steps(command, " && ")]);
     }
 
     builder
@@ -759,12 +778,20 @@ fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, Str
         .map(|pane| {
             let original = existing_pane(&pane.id);
 
+            // Prefer the draft shell (if non-empty) over whatever the existing
+            // file had, so a shell picked in the UI survives a round-trip save.
+            let shell: Option<&str> = pane
+                .shell
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| original.and_then(|p| p.shell.as_deref()));
+
             (
                 pane.id.as_str(),
                 DpanePane {
                     name: pane.name.as_str(),
                     cwd: original.and_then(|p| p.cwd.as_ref()),
-                    shell: original.and_then(|p| p.shell.as_deref()),
+                    shell,
                     command: pane
                         .command
                         .as_deref()

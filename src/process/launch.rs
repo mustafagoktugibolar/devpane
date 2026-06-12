@@ -37,6 +37,19 @@ pub fn build_launch_with_mode(pane: &WorkspacePane, mode: LaunchMode) -> Process
     }
 }
 
+/// Joins a multi-line startup command into a single shell statement.
+///
+/// `.dpane` pane commands may contain one command per line (recorded session
+/// steps); each shell needs its own statement separator.
+fn join_command_steps(command: &str, separator: &str) -> String {
+    command
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(separator)
+}
+
 #[cfg(windows)]
 fn shell_args(command: Option<&str>, mode: LaunchMode) -> Vec<String> {
     match command {
@@ -48,7 +61,8 @@ fn shell_args(command: Option<&str>, mode: LaunchMode) -> Vec<String> {
             }
 
             args.push("-Command".to_string());
-            args.push(command.to_string());
+            // Windows PowerShell 5.1 has no `&&`; `;` runs steps in order.
+            args.push(join_command_steps(command, "; "));
             args
         }
         None => Vec::new(),
@@ -58,7 +72,7 @@ fn shell_args(command: Option<&str>, mode: LaunchMode) -> Vec<String> {
 #[cfg(not(windows))]
 fn shell_args(command: Option<&str>, _mode: LaunchMode) -> Vec<String> {
     match command {
-        Some(command) => vec!["-lc".to_string(), command.to_string()],
+        Some(command) => vec!["-lc".to_string(), join_command_steps(command, " && ")],
         None => Vec::new(),
     }
 }
@@ -99,6 +113,41 @@ mod tests {
                 "-NoExit".to_string(),
                 "-Command".to_string(),
                 "cargo run".to_string()
+            ]
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn build_launch_joins_multi_step_command_for_windows_shell() {
+        let launch = build_launch_with_mode(
+            &pane(Some("cd web\nnpm install\n\nnpm run dev")),
+            LaunchMode::Interactive,
+        );
+
+        assert_eq!(
+            launch.args,
+            vec![
+                "-NoExit".to_string(),
+                "-Command".to_string(),
+                "cd web; npm install; npm run dev".to_string()
+            ]
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn build_launch_joins_multi_step_command_for_unix_shell() {
+        let launch = build_launch_with_mode(
+            &pane(Some("cd web\nnpm install\n\nnpm run dev")),
+            LaunchMode::Interactive,
+        );
+
+        assert_eq!(
+            launch.args,
+            vec![
+                "-lc".to_string(),
+                "cd web && npm install && npm run dev".to_string()
             ]
         );
     }
