@@ -1,4 +1,5 @@
 use devpane::config::{DEFAULT_SHELL, DevPaneConfig, PaneConfig, Settings};
+use devpane::process::launch::{shell_program_name, terminal_shell_args};
 use devpane::workspace::build_workspace;
 use portable_pty::{ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use serde::{Deserialize, Serialize};
@@ -121,6 +122,19 @@ pub struct WorkspaceSummary {
     pub scrollback: u32,
 }
 
+#[derive(Serialize)]
+/// Shell option displayed by the desktop titlebar.
+pub struct ShellOption {
+    /// Human readable shell label.
+    pub label: String,
+
+    /// Shell program sent back to Rust, or `null` for the platform default.
+    pub value: Option<String>,
+
+    /// Whether this option represents the platform default shell.
+    pub is_default: bool,
+}
+
 #[derive(Deserialize)]
 /// Draft pane data received from the desktop save dialog.
 pub struct DraftPane {
@@ -132,6 +146,14 @@ pub struct DraftPane {
 
     /// Optional startup command to persist for this pane.
     pub command: Option<String>,
+
+    /// Optional working directory to persist for this pane.
+    pub cwd: Option<String>,
+
+    /// Optional shell override chosen by the user in the UI.
+    ///
+    /// When set, takes precedence over whatever shell the existing file had.
+    pub shell: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -175,9 +197,6 @@ pub struct StartTerminalRequest {
     ///
     /// Defaults to the platform default shell when missing.
     pub shell: Option<String>,
-
-    /// Optional startup command run inside the terminal shell.
-    pub command: Option<String>,
 
     /// Initial terminal row count.
     pub rows: u16,
@@ -231,26 +250,26 @@ pub struct TerminalExit {
 /// Optional fields are omitted instead of written as defaults so a re-save
 /// preserves what the original file left unspecified.
 #[derive(Serialize)]
-struct DpaneFile<'a> {
+struct DpaneFile {
     version: u16,
-    name: &'a str,
+    name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    root: Option<&'a std::path::PathBuf>,
+    root: Option<std::path::PathBuf>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    settings: Option<&'a Settings>,
+    settings: Option<Settings>,
     layout: devpane::config::LayoutNode,
-    panes: std::collections::BTreeMap<&'a str, DpanePane<'a>>,
+    panes: std::collections::BTreeMap<String, DpanePane>,
 }
 
 #[derive(Serialize)]
-struct DpanePane<'a> {
-    name: &'a str,
+struct DpanePane {
+    name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    cwd: Option<&'a std::path::PathBuf>,
+    cwd: Option<std::path::PathBuf>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    shell: Option<&'a str>,
+    shell: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    command: Option<&'a str>,
+    command: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     auto_start: Option<bool>,
 }
@@ -308,6 +327,56 @@ fn workspace_file_name(name: &str) -> String {
         "workspace.dpane".to_string()
     } else {
         format!("{file_name}.dpane")
+    }
+}
+
+#[cfg(windows)]
+fn desktop_default_root() -> std::path::PathBuf {
+    std::env::var("SystemDrive")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(|drive| std::path::PathBuf::from(format!(r"{drive}\")))
+        .unwrap_or_else(|| std::path::PathBuf::from(r"C:\"))
+}
+
+#[cfg(not(windows))]
+fn desktop_default_root() -> std::path::PathBuf {
+    std::env::var("HOME")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("/"))
+}
+
+fn app_workspace_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("workspaces"))
+}
+
+fn is_app_workspace_path(app: &tauri::AppHandle, path: &Path) -> bool {
+    let Ok(workspace_dir) = app_workspace_dir(app) else {
+        return false;
+    };
+
+    let Ok(workspace_dir) = workspace_dir.canonicalize() else {
+        return false;
+    };
+
+    path.parent()
+        .and_then(|parent| parent.canonicalize().ok())
+        .is_some_and(|parent| parent == workspace_dir)
+}
+
+fn apply_desktop_root_default(
+    app: &tauri::AppHandle,
+    config_path: &Path,
+    config: &mut DevPaneConfig,
+) {
+    if config.root.is_none() && is_app_workspace_path(app, config_path) {
+        config.root = Some(desktop_default_root());
     }
 }
 
@@ -405,9 +474,10 @@ fn delete_workspace(app: tauri::AppHandle, request: DeleteWorkspaceRequest) -> R
 }
 
 #[tauri::command]
-fn load_workspace(path: String) -> Result<WorkspaceSummary, String> {
+fn load_workspace(app: tauri::AppHandle, path: String) -> Result<WorkspaceSummary, String> {
     let config_path = Path::new(&path);
-    let config = DevPaneConfig::load_from_file(config_path).map_err(|e| e.to_string())?;
+    let mut config = DevPaneConfig::load_from_file(config_path).map_err(|e| e.to_string())?;
+    apply_desktop_root_default(&app, config_path, &mut config);
     let workspace = build_workspace(config_path, &config).map_err(|e| e.to_string())?;
 
     Ok(WorkspaceSummary {
@@ -430,54 +500,14 @@ fn load_workspace(path: String) -> Result<WorkspaceSummary, String> {
     })
 }
 
-/// Returns the lowercase program name of a shell path, without extension.
-fn shell_program_name(shell: &str) -> String {
-    Path::new(shell)
-        .file_stem()
-        .map(|stem| stem.to_string_lossy().to_lowercase())
-        .unwrap_or_else(|| shell.to_lowercase())
-}
-
-#[cfg(windows)]
-fn shell_command(shell: &str, command: Option<&str>, pane_name: &str) -> CommandBuilder {
+fn shell_command(shell: &str, pane_name: &str) -> CommandBuilder {
     let mut builder = CommandBuilder::new(shell);
     builder.env("DEVPANE_PANE_NAME", pane_name);
-    let command = command.filter(|value| !value.trim().is_empty());
-
-    match shell_program_name(shell).as_str() {
-        "powershell" | "pwsh" => {
-            builder.args(["-NoLogo", "-NoExit"]);
-
-            let mut startup = r#"function global:prompt { $location = $executionContext.SessionState.Path.CurrentLocation.Path; if ($location.StartsWith('\\?\')) { $location = $location.Substring(4) }; "[$env:DEVPANE_PANE_NAME] PS $location> " }"#.to_string();
-            if let Some(command) = command {
-                startup.push_str("; ");
-                startup.push_str(command);
-            }
-
-            builder.args(["-Command", &startup]);
-        }
-        "cmd" => {
-            if let Some(command) = command {
-                builder.args(["/K", command]);
-            }
-        }
-        _ => {
-            if let Some(command) = command {
-                builder.args(["-lc", command]);
-            }
-        }
-    }
-
-    builder
-}
-
-#[cfg(not(windows))]
-fn shell_command(shell: &str, command: Option<&str>, pane_name: &str) -> CommandBuilder {
-    let mut builder = CommandBuilder::new(shell);
-    builder.env("DEVPANE_PANE_NAME", pane_name);
-
-    if let Some(command) = command.filter(|value| !value.trim().is_empty()) {
-        builder.args(["-lc", command]);
+    builder.env("TERM", "xterm-256color");
+    builder.env("COLORTERM", "truecolor");
+    let args = terminal_shell_args(shell, None);
+    if !args.is_empty() {
+        builder.args(args);
     }
 
     builder
@@ -503,6 +533,82 @@ fn default_shell() -> String {
     }
 
     DEFAULT_SHELL.to_string()
+}
+
+#[cfg(windows)]
+fn platform_shell_candidates() -> &'static [(&'static str, &'static str)] {
+    &[
+        ("PowerShell", "powershell"),
+        ("PowerShell 7", "pwsh"),
+        ("Command Prompt", "cmd"),
+    ]
+}
+
+#[cfg(target_os = "macos")]
+fn platform_shell_candidates() -> &'static [(&'static str, &'static str)] {
+    &[("zsh", "zsh"), ("bash", "bash"), ("sh", "sh")]
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn platform_shell_candidates() -> &'static [(&'static str, &'static str)] {
+    &[("sh", "sh"), ("bash", "bash"), ("zsh", "zsh")]
+}
+
+fn shell_label(shell: &str) -> String {
+    match shell_program_name(shell).as_str() {
+        "powershell" => "PowerShell".to_string(),
+        "pwsh" => "PowerShell 7".to_string(),
+        "cmd" => "Command Prompt".to_string(),
+        "zsh" => "zsh".to_string(),
+        "bash" => "bash".to_string(),
+        "sh" => "sh".to_string(),
+        program => program.to_string(),
+    }
+}
+
+fn paths_match(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+fn draft_cwd_path(cwd: Option<&str>, root: &Path) -> Option<std::path::PathBuf> {
+    let cwd = cwd?.trim();
+    if cwd.is_empty() {
+        return None;
+    }
+
+    let path = std::path::PathBuf::from(cwd);
+    if paths_match(&path, root) {
+        None
+    } else {
+        Some(path)
+    }
+}
+
+#[tauri::command]
+fn list_shell_options() -> Vec<ShellOption> {
+    let default = default_shell();
+    let default_program = shell_program_name(&default);
+    let mut options = vec![ShellOption {
+        label: format!("Default ({})", shell_label(&default)),
+        value: None,
+        is_default: true,
+    }];
+
+    options.extend(
+        platform_shell_candidates()
+            .iter()
+            .filter(|(_, value)| shell_program_name(value) != default_program)
+            .map(|(label, value)| ShellOption {
+                label: (*label).to_string(),
+                value: Some((*value).to_string()),
+                is_default: false,
+            }),
+    );
+
+    options
 }
 
 /// Resolves the user's home directory for terminals started without a cwd.
@@ -538,7 +644,7 @@ fn start_terminal(
         .map(str::to_string)
         .unwrap_or_else(default_shell);
 
-    let mut command = shell_command(&shell, request.command.as_deref(), &request.pane_name);
+    let mut command = shell_command(&shell, &request.pane_name);
     let cwd = request
         .cwd
         .as_deref()
@@ -728,7 +834,10 @@ fn stop_terminal(state: tauri::State<'_, TerminalStore>, pane_id: String) -> Res
 }
 
 #[tauri::command]
-fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, String> {
+fn save_workspace(
+    app: tauri::AppHandle,
+    request: SaveWorkspaceRequest,
+) -> Result<WorkspaceSummary, String> {
     if request.name.trim().is_empty() {
         return Err("workspace name cannot be empty".to_string());
     }
@@ -745,13 +854,19 @@ fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, Str
     // Preserve fields the UI does not edit (root, settings, per-pane
     // cwd/shell/auto_start) when overwriting an existing workspace file.
     let existing: Option<DevPaneConfig> = if config_path.exists() {
-        Some(DevPaneConfig::load_from_file(config_path).map_err(|e| e.to_string())?)
+        let mut config = DevPaneConfig::load_from_file(config_path).map_err(|e| e.to_string())?;
+        apply_desktop_root_default(&app, config_path, &mut config);
+        Some(config)
     } else {
         None
     };
     let existing_pane = |id: &str| -> Option<&PaneConfig> {
         existing.as_ref().and_then(|config| config.panes.get(id))
     };
+    let root = existing
+        .as_ref()
+        .and_then(|config| config.root.clone())
+        .unwrap_or_else(desktop_default_root);
 
     let panes = request
         .panes
@@ -759,16 +874,27 @@ fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, Str
         .map(|pane| {
             let original = existing_pane(&pane.id);
 
+            // Prefer the draft shell (if non-empty) over whatever the existing
+            // file had, so a shell picked in the UI survives a round-trip save.
+            let shell: Option<&str> = pane
+                .shell
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| original.and_then(|p| p.shell.as_deref()));
+            let cwd = draft_cwd_path(pane.cwd.as_deref(), &root)
+                .or_else(|| original.and_then(|p| p.cwd.clone()));
+
             (
-                pane.id.as_str(),
+                pane.id.clone(),
                 DpanePane {
-                    name: pane.name.as_str(),
-                    cwd: original.and_then(|p| p.cwd.as_ref()),
-                    shell: original.and_then(|p| p.shell.as_deref()),
+                    name: pane.name.clone(),
+                    cwd,
+                    shell: shell.map(str::to_string),
                     command: pane
                         .command
                         .as_deref()
-                        .filter(|command| !command.trim().is_empty()),
+                        .filter(|command| !command.trim().is_empty())
+                        .map(str::to_string),
                     auto_start: original.and_then(|p| p.auto_start),
                 },
             )
@@ -777,11 +903,9 @@ fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, Str
 
     let file = DpaneFile {
         version: 1,
-        name: request.name.trim(),
-        root: existing.as_ref().and_then(|config| config.root.as_ref()),
-        settings: existing
-            .as_ref()
-            .and_then(|config| config.settings.as_ref()),
+        name: request.name.trim().to_string(),
+        root: Some(root),
+        settings: existing.as_ref().and_then(|config| config.settings.clone()),
         layout: layout_to_config(&request.layout),
         panes,
     };
@@ -789,7 +913,27 @@ fn save_workspace(request: SaveWorkspaceRequest) -> Result<WorkspaceSummary, Str
     let content = serde_yaml::to_string(&file).map_err(|e| e.to_string())?;
     std::fs::write(config_path, content).map_err(|e| e.to_string())?;
 
-    load_workspace(request.path)
+    load_workspace(app, request.path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draft_cwd_path_omits_workspace_root() {
+        let root = std::env::current_dir().expect("current directory should be available");
+
+        assert_eq!(draft_cwd_path(root.to_str(), &root), None);
+    }
+
+    #[test]
+    fn draft_cwd_path_keeps_distinct_directory() {
+        let root = std::env::current_dir().expect("current directory should be available");
+        let cwd = root.join("src-tauri");
+
+        assert_eq!(draft_cwd_path(cwd.to_str(), &root), Some(cwd));
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -814,6 +958,7 @@ pub fn run() {
             delete_workspace,
             load_workspace,
             save_workspace,
+            list_shell_options,
             start_terminal,
             write_terminal,
             resize_terminal,

@@ -20,4 +20,4 @@ log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 portable-pty = "0.8"
-devpane = { path = ".." }
+devpane = { path = "../crates/devpane" }

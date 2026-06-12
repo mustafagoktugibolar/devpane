@@ -47,6 +47,12 @@ export interface WorkspaceSummary {
   scrollback: number;
 }
 
+export interface ShellOption {
+  label: string;
+  value: string | null;
+  is_default: boolean;
+}
+
 export interface WorkspaceState {
   name: string;
   path: string | null;

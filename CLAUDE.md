@@ -43,15 +43,15 @@ The pipeline from CLI input to process execution follows this sequence:
 .dpane file → DevPaneConfig (raw YAML) → Workspace (resolved paths) → WorkspaceRuntime (with PaneStatus) → ProcessLaunch → run_launches
 ```
 
-**`src/config/`** — Raw deserialized config from YAML. `model.rs` defines the structs (`DevPaneConfig`, `PaneConfig`, `LayoutNode`). `settings.rs` implements resolution helpers (`pane_shell`, `pane_auto_start`, `scrollback`) with pane → global → platform-default precedence. `paths.rs` resolves `workspace_root` and `pane_cwd` (relative paths are anchored to the `.dpane` file directory, then to workspace root). `validation.rs` checks semantic constraints that YAML deserialization cannot catch.
+**`crates/devpane/src/config/`** — Raw deserialized config from YAML. `model.rs` defines the structs (`DevPaneConfig`, `PaneConfig`, `LayoutNode`). `settings.rs` implements resolution helpers (`pane_shell`, `pane_auto_start`, `scrollback`) with pane → global → platform-default precedence. `paths.rs` resolves `workspace_root` and `pane_cwd` (relative paths are anchored to the `.dpane` file directory, then to workspace root). `validation.rs` checks semantic constraints that YAML deserialization cannot catch.
 
-**`src/workspace/`** — `builder.rs` calls `build_workspace` to produce a fully resolved `Workspace` with concrete paths and settings. `runtime.rs` wraps it in `WorkspaceRuntime`, which tracks per-pane `PaneStatus` (`Idle → Starting → Running → Exited/Failed`). The runtime is the mutable state passed through the process lifecycle.
+**`crates/devpane/src/workspace/`** — `builder.rs` calls `build_workspace` to produce a fully resolved `Workspace` with concrete paths and settings. `runtime.rs` wraps it in `WorkspaceRuntime`, which tracks per-pane `PaneStatus` (`Idle → Starting → Running → Exited/Failed`). The runtime is the mutable state passed through the process lifecycle.
 
-**`src/process/`** — `launch.rs` maps a `WorkspacePane` to a `ProcessLaunch` (program + args). Shell args differ by platform: on Windows, pwsh gets `-NoExit -Command <cmd>` (interactive) or `-Command <cmd>` (headless); on Unix, the shell gets `-lc <cmd>`. `manager.rs` owns lifecycle transitions and produces `ProcessLaunch` values. `runner.rs` actually spawns OS processes via `std::process::Command` and waits for them all.
+**`crates/devpane/src/process/`** — `launch.rs` maps a `WorkspacePane` to a `ProcessLaunch` (program + args). Shell args differ by platform: on Windows, pwsh gets `-NoExit -Command <cmd>` (interactive) or `-Command <cmd>` (headless); on Unix, the shell gets `-lc <cmd>`. `manager.rs` owns lifecycle transitions and produces `ProcessLaunch` values. `runner.rs` actually spawns OS processes via `std::process::Command` and waits for them all.
 
-**`src/output.rs`** — Pure formatting functions for all CLI output. No side effects; all return `String`.
+**`crates/devpane/src/output.rs`** — Pure formatting functions for all CLI output. No side effects; all return `String`.
 
-**`src/cli.rs`** — Clap-based CLI with four subcommands: `validate`, `inspect`, `plan`, `run`. All take a single path argument pointing to a `.dpane` file.
+**`crates/devpane/src/cli.rs`** — Clap-based CLI with four subcommands: `validate`, `inspect`, `plan`, `run`. All take a single path argument pointing to a `.dpane` file.
 
 ## .dpane file format
 

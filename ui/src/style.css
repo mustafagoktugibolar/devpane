@@ -184,6 +184,97 @@ button:disabled {
   background: rgba(255,255,255,0.08);
 }
 
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.titlebar-action-btn {
+  position: relative;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 7px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.titlebar-action-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+}
+
+.titlebar-action-btn.save-dirty {
+  color: var(--accent);
+}
+
+.titlebar-action-btn.save-dirty:hover:not(:disabled) {
+  color: var(--accent-strong);
+}
+
+.save-dot {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.shell-picker-btn {
+  padding: 0 6px;
+  gap: 3px;
+}
+
+.shell-picker-label {
+  font-size: 11px;
+  color: inherit;
+}
+
+.shell-picker-panel {
+  left: 0;
+  width: 130px;
+}
+
+.shell-picker-panel button.active {
+  color: var(--accent);
+}
+
+.menu-section-label {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+
+.menu-shell-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .titlebar-controls {
   display: flex;
   flex-shrink: 0;
@@ -528,6 +619,8 @@ button:disabled {
 
 .modal {
   width: min(620px, 100%);
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -535,6 +628,57 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.save-panes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.save-panes-title {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.save-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.save-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.save-pane-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.save-pane-history {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.save-pane-history:hover {
+  border-color: var(--accent);
+}
+
+.command-input {
+  resize: vertical;
+  min-height: 44px;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .modal h2 {

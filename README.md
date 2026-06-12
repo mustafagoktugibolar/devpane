@@ -14,7 +14,7 @@ npm install --prefix ui
 The desktop commands use Tauri's Cargo subcommand. If `cargo tauri` is missing:
 
 ```powershell
-cargo install tauri-cli --version "^2"
+cargo install tauri-cli --version "^2" --locked
 ```
 
 Use the portable example for local testing:
@@ -105,6 +105,20 @@ Equivalent long form:
 ```powershell
 cargo tauri build
 ```
+
+## Release Installers
+
+GitHub Actions publishes desktop installers when a version tag is pushed:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Release` workflow builds DevPane on macOS, Windows, and Linux, then
+publishes the generated Tauri bundles to the GitHub Releases page. Keep
+`src-tauri/tauri.conf.json` version aligned with the tag before publishing a
+release.
 
 ## Development Checks
 

@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { TerminalExit, TerminalOutput } from '../types';
+import type { ShellOption, TerminalExit, TerminalOutput } from '../types';
 
 export function listenTerminalOutput(
   paneId: string,
@@ -21,7 +21,6 @@ export interface StartTerminalOptions {
   paneName: string;
   cwd: string | null;
   shell: string | null;
-  command: string | null;
   rows: number;
   cols: number;
 }
@@ -33,7 +32,6 @@ export function startTerminal(options: StartTerminalOptions): Promise<void> {
       pane_name: options.paneName,
       cwd: options.cwd,
       shell: options.shell,
-      command: options.command,
       rows: options.rows,
       cols: options.cols,
     },
@@ -61,4 +59,8 @@ export function resizeTerminal(paneId: string, rows: number, cols: number): Prom
 
 export function stopTerminal(paneId: string): Promise<void> {
   return invoke('stop_terminal', { paneId });
+}
+
+export function listShellOptions(): Promise<ShellOption[]> {
+  return invoke<ShellOption[]>('list_shell_options');
 }

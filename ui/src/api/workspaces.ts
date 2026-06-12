@@ -43,6 +43,8 @@ export function saveWorkspace(
         id: pane.id,
         name: pane.name,
         command: pane.command || null,
+        cwd: pane.cwd || null,
+        shell: pane.shell || null,
       })),
     },
   });
