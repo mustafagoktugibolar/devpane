@@ -1,22 +1,4 @@
 [workspace]
-members = [".", "src-tauri"]
-
-[package]
-name = "devpane"
-version = "0.1.0"
-edition = "2024"
-
-[lib]
-name = "devpane"
-path = "src/lib.rs"
-
-[[bin]]
-name = "devpane"
-path = "src/main.rs"
-
-[dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9"
-anyhow = "1"
-clap = { version = "4", features = ["derive"] }
-ctrlc = "3"
+members = ["crates/devpane", "crates/cli", "src-tauri"]
+default-members = ["crates/cli"]
+resolver = "3"

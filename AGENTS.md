@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`devpane` is a Rust CLI for reading `.dpane` YAML workspace files, validating them, resolving paths, building launch plans, and managing pane process lifecycles. Source lives in `src/`: `cli.rs` defines Clap commands, `main.rs` wires execution, and `output.rs` contains pure formatting helpers. Domain modules are split into `src/config/` for YAML models, validation, settings, and path resolution; `src/workspace/` for resolved workspace and runtime state; and `src/process/` for launch planning, lifecycle management, and process spawning. Example workspace files live in `examples/`, currently `examples/webclient.dpane`.
+`devpane` is a Rust CLI for reading `.dpane` YAML workspace files, validating them, resolving paths, building launch plans, and managing pane process lifecycles. The core CLI/library crate lives in `crates/devpane/src/`: `cli.rs` defines Clap commands, `main.rs` wires execution, and `output.rs` contains pure formatting helpers. Domain modules are split into `crates/devpane/src/config/` for YAML models, validation, settings, and path resolution; `crates/devpane/src/workspace/` for resolved workspace and runtime state; and `crates/devpane/src/process/` for launch planning, lifecycle management, and process spawning. The Tauri shell lives in `src-tauri/`, the frontend lives in `ui/`, and example workspace files live in `examples/`, currently `examples/webclient.dpane`.
 
 ## Build, Test, and Development Commands
 
