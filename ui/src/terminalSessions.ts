@@ -32,6 +32,7 @@ interface Session {
   lineBuffer: string;
   lineTainted: boolean;
   escapeBuffer: string | null;
+  startGeneration: number;
 }
 
 // PTY sessions live here, outside the component tree, so layout changes that
@@ -41,6 +42,8 @@ const sessions = new Map<string, Session>();
 // Rough character budget for the replay buffer, derived from the workspace
 // scrollback line count when a session starts.
 let bufferLimit = 256_000;
+
+const STARTUP_COMMAND_DELAY_MS = 150;
 
 export function setScrollback(lines: number) {
   bufferLimit = Math.max(64_000, lines * 256);
@@ -61,6 +64,7 @@ function getOrCreate(paneId: string): Session {
       lineBuffer: '',
       lineTainted: false,
       escapeBuffer: null,
+      startGeneration: 0,
     };
     sessions.set(paneId, session);
   }
@@ -131,6 +135,44 @@ function captureInput(session: Session, data: string) {
   }
 }
 
+function startupCommandInput(command: string | null): string | null {
+  const lines = command
+    ?.split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (!lines || lines.length === 0) return null;
+
+  return lines.map(line => `${line}\r`).join('');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function runStartupCommand(
+  session: Session,
+  generation: number,
+  options: SessionStartOptions,
+): Promise<void> {
+  const input = startupCommandInput(options.command);
+  if (!input) return;
+
+  await delay(STARTUP_COMMAND_DELAY_MS);
+
+  if (
+    sessions.get(options.paneId) !== session ||
+    session.startGeneration !== generation ||
+    session.status !== 'running'
+  ) {
+    return;
+  }
+
+  await writeTerminal(options.paneId, input);
+}
+
 export function getCommandLog(paneId: string): string[] {
   return [...(sessions.get(paneId)?.commandLog ?? [])];
 }
@@ -181,12 +223,15 @@ export function subscribe(
 export async function start(options: SessionStartOptions): Promise<void> {
   const session = getOrCreate(options.paneId);
   if (session.status === 'running') return;
+  const generation = session.startGeneration + 1;
 
   session.lastStart = options;
   session.buffer = '';
   session.commandLog = [];
   session.lineBuffer = '';
   session.lineTainted = false;
+  session.escapeBuffer = null;
+  session.startGeneration = generation;
 
   if (!session.unlistenOutput) {
     session.unlistenOutput = await listenTerminalOutput(options.paneId, output => {
@@ -201,8 +246,16 @@ export async function start(options: SessionStartOptions): Promise<void> {
     });
   }
 
-  await startTerminal(options);
+  await startTerminal({
+    paneId: options.paneId,
+    paneName: options.paneName,
+    cwd: options.cwd,
+    shell: options.shell,
+    rows: options.rows,
+    cols: options.cols,
+  });
   setStatus(session, 'running');
+  await runStartupCommand(session, generation, options);
 }
 
 export async function restart(paneId: string, rows: number, cols: number): Promise<void> {

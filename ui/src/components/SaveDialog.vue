@@ -26,7 +26,7 @@ function sessionLog(paneId: string): string[] {
   return props.commandLogs[paneId] ?? [];
 }
 
-function useSessionLog(paneId: string) {
+function useCapturedCommands(paneId: string) {
   commands.value[paneId] = sessionLog(paneId).join('\n');
 }
 
@@ -53,7 +53,7 @@ function submit() {
       </label>
 
       <div class="save-panes">
-        <span class="save-panes-title">Startup commands (run on open when auto start is on)</span>
+        <span class="save-panes-title">Startup commands (run after the terminal opens)</span>
         <div v-for="pane in panes" :key="pane.id" class="save-pane">
           <div class="save-pane-head">
             <span class="save-pane-name">{{ pane.name }}</span>
@@ -62,9 +62,9 @@ function submit() {
               type="button"
               class="save-pane-history"
               :title="sessionLog(pane.id).join('\n')"
-              @click="useSessionLog(pane.id)"
+              @click="useCapturedCommands(pane.id)"
             >
-              Use session history ({{ sessionLog(pane.id).length }})
+              Suggest captured commands ({{ sessionLog(pane.id).length }})
             </button>
           </div>
           <textarea

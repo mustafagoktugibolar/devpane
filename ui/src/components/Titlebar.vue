@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import {
   closeWindow,
   minimizeWindow,
@@ -7,7 +7,8 @@ import {
   startWindowResize,
   toggleMaximizeWindow,
 } from '../api/window';
-import type { ResizeDirection } from '../types';
+import { listShellOptions } from '../api/terminals';
+import type { ResizeDirection, ShellOption } from '../types';
 
 defineProps<{
   hasWorkspace: boolean;
@@ -24,12 +25,22 @@ const emit = defineEmits<{
 }>();
 
 const openMenu = ref<string | null>(null);
-const selectedShell = ref<string | null>(null); // null = PowerShell default
+const selectedShell = ref<string | null>(null);
 
-const SHELLS: { label: string; value: string | null }[] = [
-  { label: 'PowerShell', value: null },
-  { label: 'cmd', value: 'cmd' },
-];
+const shellOptions = ref<ShellOption[]>([
+  { label: 'Default', value: null, is_default: true },
+]);
+
+onMounted(async () => {
+  try {
+    const options = await listShellOptions();
+    if (options.length > 0) {
+      shellOptions.value = options;
+    }
+  } catch {
+    shellOptions.value = [{ label: 'Default', value: null, is_default: true }];
+  }
+});
 
 function toggleMenu(menu: string) {
   openMenu.value = openMenu.value === menu ? null : menu;
@@ -60,7 +71,7 @@ function onResize(event: PointerEvent, direction: ResizeDirection) {
 }
 
 function shellDisplayName(value: string | null): string {
-  return SHELLS.find(s => s.value === value)?.label ?? 'PowerShell';
+  return shellOptions.value.find(shell => shell.value === value)?.label ?? shellOptions.value[0]?.label ?? 'Default';
 }
 </script>
 
@@ -81,43 +92,37 @@ function shellDisplayName(value: string | null): string {
         <button class="titlebar-menu-btn" type="button" @click="toggleMenu('terminal')">Terminal</button>
         <div class="titlebar-menu-panel" :class="{ open: openMenu === 'terminal' }">
           <div class="menu-section-label">Split Right</div>
-          <button type="button" :disabled="!hasWorkspace" @click="run(() => emit('split-right', null))">
+          <button
+            v-for="shell in shellOptions"
+            :key="`right-${shell.value ?? 'default'}`"
+            type="button"
+            :disabled="!hasWorkspace"
+            @click="run(() => emit('split-right', shell.value))"
+          >
             <span class="menu-shell-icon">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                 <rect x="2" y="2" width="12" height="12" rx="2"/>
                 <line x1="9" y1="2" x2="9" y2="14"/>
               </svg>
             </span>
-            Split Right — PowerShell
-          </button>
-          <button type="button" :disabled="!hasWorkspace" @click="run(() => emit('split-right', 'cmd'))">
-            <span class="menu-shell-icon">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-                <rect x="2" y="2" width="12" height="12" rx="2"/>
-                <line x1="9" y1="2" x2="9" y2="14"/>
-              </svg>
-            </span>
-            Split Right — cmd
+            Split Right - {{ shell.label }}
           </button>
           <div class="menu-divider"></div>
           <div class="menu-section-label">Split Down</div>
-          <button type="button" :disabled="!hasWorkspace" @click="run(() => emit('split-down', null))">
+          <button
+            v-for="shell in shellOptions"
+            :key="`down-${shell.value ?? 'default'}`"
+            type="button"
+            :disabled="!hasWorkspace"
+            @click="run(() => emit('split-down', shell.value))"
+          >
             <span class="menu-shell-icon">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                 <rect x="2" y="2" width="12" height="12" rx="2"/>
                 <line x1="2" y1="9" x2="14" y2="9"/>
               </svg>
             </span>
-            Split Down — PowerShell
-          </button>
-          <button type="button" :disabled="!hasWorkspace" @click="run(() => emit('split-down', 'cmd'))">
-            <span class="menu-shell-icon">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-                <rect x="2" y="2" width="12" height="12" rx="2"/>
-                <line x1="2" y1="9" x2="14" y2="9"/>
-              </svg>
-            </span>
-            Split Down — cmd
+            Split Down - {{ shell.label }}
           </button>
           <div class="menu-divider"></div>
           <button type="button" :disabled="!hasWorkspace" @click="run(() => emit('close-terminal'))">Close Terminal</button>
@@ -143,7 +148,7 @@ function shellDisplayName(value: string | null): string {
         </button>
         <div class="titlebar-menu-panel shell-picker-panel" :class="{ open: openMenu === 'shell-picker' }">
           <button
-            v-for="shell in SHELLS"
+            v-for="shell in shellOptions"
             :key="String(shell.value)"
             type="button"
             :class="{ active: selectedShell === shell.value }"

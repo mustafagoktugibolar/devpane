@@ -14,7 +14,7 @@ npm install --prefix ui
 The desktop commands use Tauri's Cargo subcommand. If `cargo tauri` is missing:
 
 ```powershell
-cargo install tauri-cli --version "^2"
+cargo install tauri-cli --version "^2" --locked
 ```
 
 Use the portable example for local testing:
