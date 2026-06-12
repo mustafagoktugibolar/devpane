@@ -62,7 +62,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: src-tauri
+          tauriScript: cargo tauri
           tagName: ${{ github.ref_name }}
           releaseName: "DevPane ${{ github.ref_name }}"
           releaseBody: "Installers for macOS, Windows, and Linux."
