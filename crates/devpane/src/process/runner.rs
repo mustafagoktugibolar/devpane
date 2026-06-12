@@ -3,8 +3,8 @@ use anyhow::{Context, Result};
 use std::process::{Child, Command};
 use std::sync::OnceLock;
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use std::thread;
 use std::time::Duration;

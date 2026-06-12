@@ -1,6 +1,6 @@
-use crate::process::launch::{LaunchMode, ProcessLaunch, build_launch_with_mode};
+use crate::process::launch::{build_launch_with_mode, LaunchMode, ProcessLaunch};
 use crate::workspace::{PaneStatus, WorkspaceRuntime};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 /// Coordinates pane lifecycle transitions.
 ///

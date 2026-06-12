@@ -1,5 +1,5 @@
 use super::{Workspace, WorkspacePane};
-use crate::config::{DevPaneConfig, validate_config};
+use crate::config::{validate_config, DevPaneConfig};
 use anyhow::Result;
 use std::path::Path;
 

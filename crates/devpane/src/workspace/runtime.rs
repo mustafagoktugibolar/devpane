@@ -117,12 +117,10 @@ mod tests {
 
         assert_eq!(runtime.workspace_name(), "Test Workspace");
         assert_eq!(runtime.panes.len(), 2);
-        assert!(
-            runtime
-                .panes
-                .iter()
-                .all(|pane| pane.status == PaneStatus::Idle)
-        );
+        assert!(runtime
+            .panes
+            .iter()
+            .all(|pane| pane.status == PaneStatus::Idle));
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use super::{DevPaneConfig, LayoutNode};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use std::collections::HashSet;
 use std::path::Path;
 

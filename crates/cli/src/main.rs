@@ -9,9 +9,9 @@ use devpane::output::{
 };
 use devpane::process::launch::LaunchMode;
 use devpane::process::manager::ProcessManager;
-use devpane::process::runner::{RunOutcome, run_launches_until_interrupted};
-use devpane::workspace::WorkspaceRuntime;
+use devpane::process::runner::{run_launches_until_interrupted, RunOutcome};
 use devpane::workspace::build_workspace;
+use devpane::workspace::WorkspaceRuntime;
 use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
