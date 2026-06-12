@@ -20,6 +20,10 @@
 
 Use standard Rust formatting from `rustfmt` with 4-space indentation. Prefer small modules with explicit responsibilities matching the existing `config`, `workspace`, and `process` boundaries. Use `snake_case` for functions, variables, and module files; `PascalCase` for structs and enums; and descriptive enum variants such as `PaneStatus::Running`. Keep formatting logic in `output.rs` side-effect free.
 
+## Documentation Guidelines
+
+Write documentation as the code evolves. Public Rust modules, structs, enums, fields, and functions should have concise `///` docs that explain their role in DevPane's workspace, process, or desktop-app flow. Public functions that return `Result` should include a short `# Errors` section. For Tauri command payloads and frontend/backend contracts, document what each request or response type represents so the UI boundary remains easy to understand.
+
 ## Testing Guidelines
 
 Tests are inline unit tests under `mod tests` in the relevant source file. Add tests near the behavior being changed, especially for config validation, path resolution, process launch arguments, runtime transitions, and CLI parsing. Use focused test names that describe the expected behavior, for example `pane_shell_prefers_pane_override`. Run `cargo test` before submitting changes.

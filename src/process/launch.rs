@@ -117,7 +117,7 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn build_launch_wraps_command_for_unix_shell() {
-        let launch = build_launch(&pane(Some("cargo run")));
+        let launch = build_launch_with_mode(&pane(Some("cargo run")), LaunchMode::Interactive);
 
         assert_eq!(
             launch.args,

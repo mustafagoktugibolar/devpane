@@ -1,0 +1,4 @@
+[alias]
+app = "tauri dev"
+app-build = "tauri build"
+check-all = "test --workspace"

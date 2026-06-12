@@ -5,7 +5,7 @@
   "identifier": "dev.devpane.app",
   "build": {
     "frontendDist": "../ui/dist",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:17777",
     "beforeDevCommand": "npm run dev --prefix ../ui",
     "beforeBuildCommand": "npm run build --prefix ../ui"
   },
@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {

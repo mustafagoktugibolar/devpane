@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-`devpane` is a CLI tool that reads `.dpane` workspace files (YAML) and manages terminal pane lifecycles. It validates configs, resolves paths, builds launch plans, and spawns processes for auto-start panes.
+`devpane` is a CLI tool that reads `.dpane` workspace files (YAML) and manages terminal pane lifecycles. It validates configs, resolves paths, builds launch plans, and spawns processes for auto-start panes. A Tauri desktop app (`src-tauri/` + `ui/`) reuses the same library to render PTY-backed terminal panes (xterm.js + portable-pty).
 
 ## Commands
 
@@ -26,6 +26,13 @@ cargo run -- validate examples/webclient.dpane
 cargo run -- inspect examples/webclient.dpane
 cargo run -- plan    examples/webclient.dpane
 cargo run -- run     examples/webclient.dpane
+
+# Desktop app (Tauri); aliases defined in .cargo/config.toml
+cargo app          # = cargo tauri dev
+cargo app-build    # = cargo tauri build
+
+# UI type check (covers .vue files via vue-tsc)
+npm run check --prefix ui
 ```
 
 ## Architecture
@@ -73,4 +80,9 @@ panes:
     auto_start: true      # overrides settings.auto_start
 ```
 
-Only `version`, `name`, `layout`, and `panes` are required. `settings` and per-pane overrides are all optional.
+Only `version`, `name`, `layout`, and `panes` are required. `settings` and per-pane overrides are all optional. Unknown fields are rejected (`deny_unknown_fields`), and each pane may appear in the layout at most once.
+
+## Dependency notes
+
+- `serde_yaml` is unmaintained (archived upstream). It works fine today; revisit (e.g. `serde-yaml-ng`) before adding YAML-heavy features.
+- The UI build runs `vue-tsc`, not plain `tsc` — plain `tsc` silently skips `.vue` files and misses template/script errors.

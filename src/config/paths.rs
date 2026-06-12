@@ -12,7 +12,10 @@ impl DevPaneConfig {
     pub fn load_from_file(path: &Path) -> Result<DevPaneConfig> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("failed to read config file: {}", path.display()))?;
-        let config: DevPaneConfig = serde_yaml::from_str(&content)
+        // Windows editors often save UTF-8 with a BOM, which serde_yaml
+        // treats as content and fails on.
+        let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+        let config: DevPaneConfig = serde_yaml::from_str(content)
             .with_context(|| format!("failed to parse config file: {}", path.display()))?;
         Ok(config)
     }
@@ -54,10 +57,21 @@ impl DevPaneConfig {
     pub fn pane_cwd(&self, config_path: &Path, pane: &PaneConfig) -> Result<PathBuf> {
         let workspace_root = self.workspace_root(config_path)?;
 
+        Self::pane_cwd_in(&workspace_root, pane)
+    }
+
+    /// Resolves the working directory for a pane against an already resolved
+    /// workspace root, avoiding repeated root canonicalization.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the resolved pane working directory does not exist
+    /// or cannot be converted to a canonical path.
+    pub fn pane_cwd_in(workspace_root: &Path, pane: &PaneConfig) -> Result<PathBuf> {
         let cwd = match &pane.cwd {
             Some(cwd) if cwd.is_absolute() => cwd.clone(),
             Some(cwd) => workspace_root.join(cwd),
-            None => workspace_root,
+            None => workspace_root.to_path_buf(),
         };
 
         cwd.canonicalize()

@@ -1,0 +1,18 @@
+version: 1
+
+name: DevPane Example
+
+root: ..
+
+settings:
+  auto_start: true
+  scrollback: 1000
+
+layout:
+  pane: devpane
+
+panes:
+  devpane:
+    name: DevPane CLI
+    cwd: .
+    command: cargo run -- inspect examples/devpane.dpane

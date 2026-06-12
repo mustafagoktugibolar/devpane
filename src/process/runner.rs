@@ -87,23 +87,48 @@ fn ctrl_c_counter() -> Result<Arc<AtomicUsize>> {
     Ok(interrupts)
 }
 
+/// Kills a child process and, on Windows, its whole process tree.
+///
+/// `Child::kill` only terminates the direct child; on Windows the shell's own
+/// children (e.g. a `cargo run` server) would survive it.
+fn kill_process_tree(child: &mut Child) {
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .output();
+    }
+
+    let _ = child.kill();
+}
+
 fn run_launches_with_interrupt_counter(
     launches: &[ProcessLaunch],
     interrupts: Arc<AtomicUsize>,
 ) -> Result<RunOutcome> {
-    let mut running = Vec::with_capacity(launches.len());
+    let mut running: Vec<RunningProcess> = Vec::with_capacity(launches.len());
 
     for launch in launches {
-        let child = Command::new(&launch.program)
+        let spawned = Command::new(&launch.program)
             .args(&launch.args)
             .current_dir(&launch.cwd)
             .spawn()
-            .with_context(|| format!("failed to start pane '{}'", launch.pane_id))?;
+            .with_context(|| format!("failed to start pane '{}'", launch.pane_id));
 
-        running.push(RunningProcess {
-            pane_id: launch.pane_id.clone(),
-            child,
-        });
+        match spawned {
+            Ok(child) => running.push(RunningProcess {
+                pane_id: launch.pane_id.clone(),
+                child,
+            }),
+            Err(error) => {
+                for process in &mut running {
+                    kill_process_tree(&mut process.child);
+                    let _ = process.child.wait();
+                }
+
+                return Err(error);
+            }
+        }
     }
 
     let mut results = Vec::with_capacity(running.len());
@@ -113,7 +138,7 @@ fn run_launches_with_interrupt_counter(
 
         if interrupt_count > 0 {
             for process in &mut running {
-                let _ = process.child.kill();
+                kill_process_tree(&mut process.child);
             }
 
             for mut process in running {

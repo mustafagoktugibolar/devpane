@@ -1,21 +1,17 @@
 mod cli;
-mod config;
-mod output;
-mod process;
-mod workspace;
 
 use crate::cli::{Cli, Command};
-use crate::config::{DevPaneConfig, validate_config};
-use crate::output::{
+use clap::Parser;
+use devpane::config::DevPaneConfig;
+use devpane::output::{
     format_launch_plan, format_process_results, format_validation_success,
     format_workspace_inspection,
 };
-use crate::process::launch::LaunchMode;
-use crate::process::manager::ProcessManager;
-use crate::process::runner::{RunOutcome, run_launches_until_interrupted};
-use crate::workspace::WorkspaceRuntime;
-use crate::workspace::build_workspace;
-use clap::Parser;
+use devpane::process::launch::LaunchMode;
+use devpane::process::manager::ProcessManager;
+use devpane::process::runner::{RunOutcome, run_launches_until_interrupted};
+use devpane::workspace::WorkspaceRuntime;
+use devpane::workspace::build_workspace;
 use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
@@ -29,17 +25,15 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn load_validated_config(config_path: &Path) -> anyhow::Result<DevPaneConfig> {
+fn load_config(config_path: &Path) -> anyhow::Result<DevPaneConfig> {
     println!("Loading config from: {}", config_path.display());
 
-    let config = DevPaneConfig::load_from_file(config_path)?;
-    validate_config(&config, config_path)?;
-
-    Ok(config)
+    DevPaneConfig::load_from_file(config_path)
 }
 
 fn validate_workspace(config_path: &Path) -> anyhow::Result<()> {
-    let config = load_validated_config(config_path)?;
+    let config = load_config(config_path)?;
+    build_workspace(config_path, &config)?;
 
     print!("{}", format_validation_success(config_path, &config));
 
@@ -47,7 +41,7 @@ fn validate_workspace(config_path: &Path) -> anyhow::Result<()> {
 }
 
 fn inspect_workspace(config_path: &Path) -> anyhow::Result<()> {
-    let config = load_validated_config(config_path)?;
+    let config = load_config(config_path)?;
     let workspace = build_workspace(config_path, &config)?;
 
     print!("{}", format_workspace_inspection(&workspace));
@@ -114,10 +108,10 @@ fn build_auto_start_launches(
     launch_mode: LaunchMode,
 ) -> anyhow::Result<(
     String,
-    Vec<crate::process::launch::ProcessLaunch>,
+    Vec<devpane::process::launch::ProcessLaunch>,
     WorkspaceRuntime,
 )> {
-    let config = load_validated_config(config_path)?;
+    let config = load_config(config_path)?;
     let workspace = build_workspace(config_path, &config)?;
     let mut runtime = WorkspaceRuntime::new(workspace);
     let workspace_name = runtime.workspace_name().to_string();

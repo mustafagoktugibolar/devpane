@@ -19,7 +19,7 @@ pub fn build_workspace(config_path: &Path, config: &DevPaneConfig) -> Result<Wor
         panes.push(WorkspacePane {
             id: pane_id.clone(),
             name: pane.name.clone().unwrap_or_else(|| pane_id.clone()),
-            cwd: config.pane_cwd(config_path, pane)?,
+            cwd: DevPaneConfig::pane_cwd_in(&root, pane)?,
             shell: config.pane_shell(pane).to_string(),
             command: pane.command.clone(),
             auto_start: config.pane_auto_start(pane),

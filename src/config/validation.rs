@@ -1,5 +1,6 @@
 use super::{DevPaneConfig, LayoutNode};
 use anyhow::{Result, bail};
+use std::collections::HashSet;
 use std::path::Path;
 
 /// Validates a loaded `.dpane` configuration before the workspace is opened.
@@ -10,6 +11,7 @@ use std::path::Path;
 /// - the workspace has a name and at least one pane,
 /// - the workspace root exists,
 /// - every layout pane reference points to a declared pane,
+/// - no pane is referenced more than once in the layout,
 /// - every pane working directory exists.
 pub fn validate_config(config: &DevPaneConfig, config_path: &Path) -> Result<()> {
     if config.version != 1 {
@@ -24,13 +26,13 @@ pub fn validate_config(config: &DevPaneConfig, config_path: &Path) -> Result<()>
         bail!("workspace must define at least one pane");
     }
 
-    config.workspace_root(config_path)?;
+    let workspace_root = config.workspace_root(config_path)?;
 
-    validate_layout_node(&config.layout, config)?;
+    let mut seen_panes = HashSet::new();
+    validate_layout_node(&config.layout, config, &mut seen_panes)?;
 
     for (pane_id, pane) in &config.panes {
-        config
-            .pane_cwd(config_path, pane)
+        DevPaneConfig::pane_cwd_in(&workspace_root, pane)
             .map_err(|error| error.context(format!("invalid cwd for pane '{}'", pane_id)))?;
     }
 
@@ -40,8 +42,13 @@ pub fn validate_config(config: &DevPaneConfig, config_path: &Path) -> Result<()>
 /// Validates a recursive layout node and all of its descendants.
 ///
 /// Split nodes must contain at least one child. Pane nodes must reference an
-/// existing entry from `config.panes`.
-fn validate_layout_node(node: &LayoutNode, config: &DevPaneConfig) -> Result<()> {
+/// existing entry from `config.panes`, and each pane may appear at most once
+/// in the layout.
+fn validate_layout_node(
+    node: &LayoutNode,
+    config: &DevPaneConfig,
+    seen_panes: &mut HashSet<String>,
+) -> Result<()> {
     match node {
         LayoutNode::Split { children, .. } => {
             if children.is_empty() {
@@ -49,12 +56,16 @@ fn validate_layout_node(node: &LayoutNode, config: &DevPaneConfig) -> Result<()>
             }
 
             for child in children {
-                validate_layout_node(child, config)?;
+                validate_layout_node(child, config, seen_panes)?;
             }
         }
         LayoutNode::Pane { pane, .. } => {
             if !config.panes.contains_key(pane) {
                 bail!("layout references unknown pane: {}", pane);
+            }
+
+            if !seen_panes.insert(pane.clone()) {
+                bail!("layout references pane '{}' more than once", pane);
             }
         }
     }
@@ -130,6 +141,37 @@ mod tests {
 
         assert!(
             error.to_string().contains("layout references unknown pane"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn validate_config_rejects_duplicate_layout_pane() {
+        let root = test_dir("duplicate-pane");
+        fs::create_dir_all(&root).expect("workspace root should be created");
+        let config_path = root.join("workspace.dpane");
+        let mut config = valid_config(root);
+        config.layout = LayoutNode::Split {
+            direction: SplitDirection::Horizontal,
+            size: None,
+            children: vec![
+                LayoutNode::Pane {
+                    pane: "app".to_string(),
+                    size: None,
+                },
+                LayoutNode::Pane {
+                    pane: "app".to_string(),
+                    size: None,
+                },
+            ],
+        };
+
+        let error = validate_config(&config, &config_path).expect_err("duplicate pane should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("layout references pane 'app' more than once"),
             "unexpected error: {error:#}"
         );
     }
