@@ -114,7 +114,7 @@ async function mountTerminal() {
   });
 
   terminal.onKey(({ key }) => {
-    if (key !== '\r') return;
+    if (key !== '\r' || !terminal) return;
     const buf = terminal.buffer.active;
     const line = buf.getLine(buf.cursorY)?.translateToString(true) ?? '';
     const cmd = stripPrompt(line);

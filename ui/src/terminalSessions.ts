@@ -121,8 +121,6 @@ if (import.meta.env.DEV) {
         paneId,
         status: session.status,
         commandLog: [...session.commandLog],
-        lineBuffer: session.lineBuffer,
-        lineTainted: session.lineTainted,
       })),
   };
 }
