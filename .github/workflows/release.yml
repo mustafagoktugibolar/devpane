@@ -68,7 +68,7 @@ jobs:
           tauriScript: cargo tauri
           tagName: ${{ github.ref_name }}
           releaseName: "DevPane ${{ github.ref_name }}"
-          releaseBody: "Installers for macOS, Windows, and Linux."
+          releaseBody: "Installers for macOS, Windows, and Linux.\n**Code signing provided by SignPath Foundation (https://signpath.io/foundation).**"
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
