@@ -17,6 +17,9 @@ on:
       - "ui/package*.json"
       - ".github/workflows/ci.yml"
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
