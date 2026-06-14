@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "devpane"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -769,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "devpane-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -778,7 +778,7 @@ dependencies = [
 
 [[package]]
 name = "devpane-tauri"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "devpane",
  "log",

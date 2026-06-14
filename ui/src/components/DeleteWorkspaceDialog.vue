@@ -12,7 +12,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="modal-backdrop" @click.self="emit('cancel')">
+  <div class="modal-backdrop" @mousedown.self="emit('cancel')">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-workspace-title">
       <h2 id="delete-workspace-title">Delete workspace</h2>
       <p class="modal-copy">

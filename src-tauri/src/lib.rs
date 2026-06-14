@@ -165,6 +165,9 @@ pub struct SaveWorkspaceRequest {
     /// Workspace name to write.
     pub name: String,
 
+    /// Workspace root directory chosen by the UI (used only when creating a new file).
+    pub root: Option<String>,
+
     /// Recursive layout tree to persist.
     pub layout: WorkspaceLayoutNode,
 
@@ -332,11 +335,17 @@ fn workspace_file_name(name: &str) -> String {
 
 #[cfg(windows)]
 fn desktop_default_root() -> std::path::PathBuf {
-    std::env::var("SystemDrive")
+    std::env::var("USERPROFILE")
         .ok()
         .filter(|value| !value.trim().is_empty())
-        .map(|drive| std::path::PathBuf::from(format!(r"{drive}\")))
-        .unwrap_or_else(|| std::path::PathBuf::from(r"C:\"))
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var("SystemDrive")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+                .map(|drive| std::path::PathBuf::from(format!(r"{drive}\")))
+                .unwrap_or_else(|| std::path::PathBuf::from(r"C:\"))
+        })
 }
 
 #[cfg(not(windows))]
@@ -420,6 +429,13 @@ fn layout_to_config(node: &WorkspaceLayoutNode) -> devpane::config::LayoutNode {
             children: children.iter().map(layout_to_config).collect(),
         },
     }
+}
+
+#[tauri::command]
+fn get_launch_dir() -> String {
+    std::env::current_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -866,6 +882,13 @@ fn save_workspace(
     let root = existing
         .as_ref()
         .and_then(|config| config.root.clone())
+        .or_else(|| {
+            request
+                .root
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .map(std::path::PathBuf::from)
+        })
         .unwrap_or_else(desktop_default_root);
 
     let panes = request
@@ -952,6 +975,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_launch_dir,
             list_recent_sessions,
             add_recent_session,
             suggest_workspace_path,

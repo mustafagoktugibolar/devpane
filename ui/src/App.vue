@@ -8,6 +8,7 @@ import DeleteWorkspaceDialog from './components/DeleteWorkspaceDialog.vue';
 import {
   addRecentSession,
   deleteWorkspace,
+  getLaunchDir,
   listRecentSessions,
   loadWorkspace,
   saveWorkspace,
@@ -36,6 +37,7 @@ type ViewMode = 'picker' | 'workspace';
 const mode = ref<ViewMode>('picker');
 const sessions = ref<RecentSession[]>([]);
 const pickerError = ref<string | null>(null);
+const launchDir = ref<string | null>(null);
 const workspace = ref<WorkspaceState | null>(null);
 const showSave = ref(false);
 const saveError = ref<string | null>(null);
@@ -48,6 +50,7 @@ const DEFAULT_SCROLLBACK = 1000;
 onMounted(() => {
   void refreshSessions();
   void setWindowTitle();
+  getLaunchDir().then(dir => { launchDir.value = dir || null; }).catch(() => {});
 });
 
 async function refreshSessions() {
@@ -82,7 +85,7 @@ function makeInitialWorkspace(): WorkspaceState {
   return {
     name: 'Untitled Workspace',
     path: null,
-    root: null,
+    root: launchDir.value,
     layout: createPaneNode(pane.id),
     panes: [pane],
     activePaneId: pane.id,
@@ -291,6 +294,7 @@ async function confirmSave(payload: { name: string; path: string; commands: Reco
       payload.name.trim(),
       panes,
       workspace.value.layout,
+      workspace.value.root,
     );
     await addRecentSession(payload.path.trim(), saved.name);
     workspace.value = {

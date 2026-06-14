@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import * as sessions from '../terminalSessions';
@@ -10,12 +11,28 @@ const props = defineProps<{
   pane: WorkspacePaneState;
   root: string | null;
   scrollback: number;
+  active?: boolean;
 }>();
 
 const emit = defineEmits<{
   focused: [paneId: string];
   close: [paneId: string];
 }>();
+
+function stripPrompt(line: string): string {
+  // Find last prompt ending: "> ", "$ ", "# ", "% " (or without trailing space for cmd.exe)
+  let best = -1;
+  for (const marker of ['> ', '$ ', '# ', '% ']) {
+    const idx = line.lastIndexOf(marker);
+    if (idx > best) best = idx + marker.length;
+  }
+  if (best < 0) {
+    // cmd.exe style: C:\path>command (no space after >)
+    const idx = line.lastIndexOf('>');
+    if (idx >= 0) best = idx + 1;
+  }
+  return best >= 0 ? line.slice(best).trim() : line.trim();
+}
 
 const host = ref<HTMLElement | null>(null);
 const status = ref<sessions.SessionStatus>(sessions.getStatus(props.pane.id));
@@ -96,6 +113,14 @@ async function mountTerminal() {
     });
   });
 
+  terminal.onKey(({ key }) => {
+    if (key !== '\r') return;
+    const buf = terminal.buffer.active;
+    const line = buf.getLine(buf.cursorY)?.translateToString(true) ?? '';
+    const cmd = stripPrompt(line);
+    if (cmd) sessions.logCommand(props.pane.id, cmd);
+  });
+
   const replay = sessions.getBuffer(props.pane.id);
   if (replay) {
     terminal.write(replay);
@@ -117,10 +142,20 @@ async function mountTerminal() {
   if (sessions.getStatus(props.pane.id) === 'idle' && props.pane.autoStart) {
     startSession();
   }
+
+  if (props.active) {
+    terminal.focus();
+  }
 }
 
 onMounted(() => {
   mountTerminal().catch(reportError);
+});
+
+watch(() => props.active, active => {
+  if (!active) return;
+  if (document.querySelector('.modal-backdrop')) return;
+  terminal?.focus();
 });
 
 onBeforeUnmount(() => {

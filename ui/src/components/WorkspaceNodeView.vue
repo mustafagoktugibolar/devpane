@@ -111,6 +111,7 @@ onBeforeUnmount(() => {
       :pane="panesById[node.pane]"
       :root="root"
       :scrollback="scrollback"
+      :active="activePaneId === node.pane"
       @focused="emit('focus-pane', $event)"
       @close="emit('close-pane', $event)"
     />

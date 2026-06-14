@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { RecentSession } from '../types';
 
 const props = defineProps<{
@@ -13,8 +13,13 @@ const emit = defineEmits<{
   'delete-session': [path: string];
 }>();
 
+const pickerEl = ref<HTMLElement | null>(null);
 const selectedIndex = ref(0);
 const total = computed(() => props.sessions.length + 1);
+
+onMounted(() => {
+  pickerEl.value?.focus();
+});
 
 function openSelected() {
   if (selectedIndex.value === 0) {
@@ -47,7 +52,7 @@ function onKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <section class="picker" tabindex="0" @keydown="onKeydown">
+  <section ref="pickerEl" class="picker" tabindex="0" @keydown="onKeydown">
     <div class="picker-list">
       <div class="picker-item" :class="{ selected: selectedIndex === 0 }" @click="emit('new-session')">
         <span class="picker-new-icon">+</span>

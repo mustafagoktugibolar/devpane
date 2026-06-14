@@ -6,6 +6,10 @@ import type {
   WorkspaceSummary,
 } from '../types';
 
+export function getLaunchDir(): Promise<string> {
+  return invoke<string>('get_launch_dir');
+}
+
 export function listRecentSessions(): Promise<RecentSession[]> {
   return invoke<RecentSession[]>('list_recent_sessions');
 }
@@ -33,11 +37,13 @@ export function saveWorkspace(
   name: string,
   panes: WorkspacePaneState[],
   layout: WorkspaceLayoutNode,
+  root: string | null,
 ): Promise<WorkspaceSummary> {
   return invoke<WorkspaceSummary>('save_workspace', {
     request: {
       path,
       name,
+      root,
       layout,
       panes: panes.map(pane => ({
         id: pane.id,
