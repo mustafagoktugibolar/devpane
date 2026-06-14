@@ -4,6 +4,17 @@
 
 DevPane is a Rust workspace with a Tauri/Vue desktop UI. Core Rust code lives in `crates/devpane/src`, organized by domain modules such as `config`, `process`, and `workspace`. The CLI entry point is in `crates/cli/src`. Tauri backend code and app configuration are in `src-tauri/`, with icons under `src-tauri/icons` and capabilities under `src-tauri/capabilities`. The Vue frontend is in `ui/src`, split into `api/`, `components/`, and shared files. Example `.dpane` workspaces are in `examples/`.
 
+## Ownership Map
+
+- `.dpane` parsing, validation, root/path resolution, and settings merging: `crates/devpane/src/config` and `crates/devpane/src/workspace`.
+- Process launch planning and lifecycle behavior: `crates/devpane/src/process`.
+- CLI subcommands and output shape: `crates/cli/src`.
+- Desktop IPC bridge, PTY management, app configuration, and persistence: `src-tauri/`.
+- Frontend API boundary for Tauri commands/events: `ui/src/api`.
+- Vue components, layout, and terminal UI behavior: `ui/src/components`, `ui/src/layout.ts`, and `ui/src/terminalSessions.ts`.
+
+Keep `crates/devpane` as the reusable core. It should not depend on Tauri, Vue, PTY-specific UI behavior, or desktop persistence details. CLI and Tauri code should delegate parsing, validation, workspace building, and launch planning to the core crate.
+
 ## Build, Test, and Development Commands
 
 Run commands from the repository root unless noted.
@@ -17,13 +28,26 @@ Run commands from the repository root unless noted.
 - `cargo app-build`: builds the packaged Tauri app.
 - `cargo fmt --check`: checks Rust formatting.
 
+## Change Validation Matrix
+
+- Core parser, validation, workspace, or process-planning changes: run `cargo test --workspace`.
+- CLI behavior changes: run `cargo run -- validate examples/devpane.dpane` and `cargo run -- inspect examples/devpane.dpane`.
+- User-visible `.dpane` behavior changes: update or add an example under `examples/` and add focused Rust tests near the affected code.
+- Tauri backend or IPC changes: run `cargo test --workspace`; if the change affects frontend data contracts, also run `npm run build --prefix ui`.
+- Vue, TypeScript, layout, or terminal UI changes: run `npm run build --prefix ui`; for terminal lifecycle, pane resize, start/stop, or event behavior, also smoke-test with `cargo app` when practical.
+- Packaging, icon, capability, or release changes: run `cargo app-build` when practical.
+
 ## Coding Style & Naming Conventions
 
 Use `rustfmt` defaults for Rust and keep modules focused around existing domain boundaries. Prefer clear names for validation, launch planning, and workspace resolution code. Rust tests are usually colocated in `mod tests` blocks. Frontend code uses Vue 3 single-file components with PascalCase component filenames, TypeScript modules in camelCase, and API wrappers under `ui/src/api`.
 
+Use typed data structures and existing parser/serializer APIs for `.dpane` data instead of ad hoc string manipulation. Keep frontend components behind the API wrappers in `ui/src/api`; avoid scattering raw Tauri `invoke` or event names through Vue components.
+
 ## Testing Guidelines
 
 Add or update Rust unit tests near the code under test, especially for `.dpane` parsing, validation, path resolution, process planning, and workspace behavior. Use `cargo test --workspace` before opening a PR. For frontend changes, run `npm run build --prefix ui`; there is currently no separate frontend test command in `package.json`.
+
+When process behavior changes, cover paths with spaces, missing executables, invalid working directories, shell/command combinations, and auto-start behavior where relevant. When UI terminal behavior changes, manually verify resize, start, stop, output, and cleanup paths.
 
 ## Commit & Pull Request Guidelines
 
@@ -32,3 +56,11 @@ Use conventional commits when possible, matching existing history and `CONTRIBUT
 ## Security & Configuration Tips
 
 Do not commit machine-specific workspace paths except in clearly documented examples. `examples/webclient.dpane` may not validate on every machine; prefer `examples/devpane.dpane` for portable checks. Report vulnerabilities through the process in `SECURITY.md`.
+
+Treat `.dpane` files as untrusted input. Avoid shell interpolation when structured command/argument handling is available, preserve useful validation errors, and do not expand or execute commands during validation or inspection. Be careful with environment variables, workspace roots, relative paths, and any file writes initiated from the desktop UI.
+
+## Recommended Agent Skills
+
+- Use Rust best-practice guidance for changes in `crates/devpane`, `crates/cli`, or `src-tauri`, especially ownership, cloning, error types, and tests.
+- Use error-handling guidance when changing validation, process launch, PTY lifecycle, persistence, or user-facing diagnostics.
+- Use security guidance when changing command execution, workspace path handling, Tauri capabilities, filesystem access, or config loading.
